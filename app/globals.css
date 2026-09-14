@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0B0F14;
+  --surface: #121821;
+  --surface-raised: #1A222D;
+  --border: #232C38;
+  --foreground: #E7ECF2;
+  --muted: #7C8794;
+  --accent: #4C8DFF;
+  --accent-foreground: #05070A;
+  --priority-high: #FF5A5F;
+  --priority-medium: #FFB020;
+  --priority-low: #33D69F;
+  --danger: #FF5A5F;
+  --success: #33D69F;
+  --status-planning: #8B95A5;
+  --status-active: #4C8DFF;
+  --status-onhold: #FFB020;
+  --status-completed: #33D69F;
+  --status-archived: #5B6472;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-priority-high: var(--priority-high);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-low: var(--priority-low);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-status-planning: var(--status-planning);
+  --color-status-active: var(--status-active);
+  --color-status-onhold: var(--status-onhold);
+  --color-status-completed: var(--status-completed);
+  --color-status-archived: var(--status-archived);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}

@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  completed   Boolean   @default(false)
+  priority    Priority  @default(MEDIUM)
+  dueDate     DateTime?
+  category    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  category  String?
+  tags      String?
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus   @default(PLANNING)
+  priority    ProjectPriority @default(MEDIUM)
+  category    String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+enum JobApplicationStatus {
+  INTERESTED
+  PREPARING
+  APPLIED
+  INTERVIEW
+  ASSESSMENT
+  OFFER
+  REJECTED
+  HIRED
+}
+
+model JobApplication {
+  id              String               @id @default(cuid())
+  company         String
+  position        String
+  url             String?
+  salary          String?
+  appliedDate     DateTime?
+  status          JobApplicationStatus @default(INTERESTED)
+  interviewDate   DateTime?
+  contact         String?
+  notes           String?
+  followUpDate    DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+}
