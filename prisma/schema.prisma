@@ -94,3 +94,40 @@ model JobApplication {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 }
+
+enum AutomationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+model Automation {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  status      AutomationStatus @default(INACTIVE)
+  trigger     String?
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  webhookUrl  String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  logs        AutomationLog[]
+}
+
+enum LogStatus {
+  SUCCESS
+  FAILED
+}
+
+model AutomationLog {
+  id            String     @id @default(cuid())
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  status        LogStatus
+  executionTime Int?
+  error         String?
+  input         String?
+  output        String?
+  createdAt     DateTime   @default(now())
+}
