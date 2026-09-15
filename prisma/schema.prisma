@@ -26,6 +26,7 @@ model Task {
   priority    Priority  @default(MEDIUM)
   dueDate     DateTime?
   category    String?
+  sourceRowId String?   @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
