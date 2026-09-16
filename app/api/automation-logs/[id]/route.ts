@@ -23,7 +23,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, log });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch automation log." },
       { status: 500 }
@@ -116,7 +116,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, log });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to update automation log." },
       { status: 500 }
@@ -142,7 +142,7 @@ export async function DELETE(
     await prisma.automationLog.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Automation log deleted." });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to delete automation log." },
       { status: 500 }

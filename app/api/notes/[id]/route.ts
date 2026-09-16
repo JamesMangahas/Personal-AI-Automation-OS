@@ -18,7 +18,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, note });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch note." },
       { status: 500 }
@@ -113,7 +113,7 @@ export async function PATCH(
     const note = await prisma.note.update({ where: { id }, data });
 
     return NextResponse.json({ success: true, note });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to update note." },
       { status: 500 }
@@ -139,7 +139,7 @@ export async function DELETE(
     await prisma.note.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Note deleted." });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to delete note." },
       { status: 500 }

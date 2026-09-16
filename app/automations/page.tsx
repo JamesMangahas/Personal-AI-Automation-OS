@@ -125,6 +125,7 @@ export default function AutomationsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAutomations();
   }, [loadAutomations]);
 
@@ -344,7 +345,7 @@ export default function AutomationsPage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS · 05 AUTOMATIONS</p>
+            <p className="font-mono text-xs tracking-wide text-muted">OPS Â· 05 AUTOMATIONS</p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Automations
             </h1>
@@ -441,7 +442,7 @@ export default function AutomationsPage() {
               aria-label="Dismiss message"
               className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
             >
-              ✕
+              âœ•
             </button>
           </div>
         )}
@@ -568,7 +569,7 @@ export default function AutomationsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -717,7 +718,7 @@ export default function AutomationsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 

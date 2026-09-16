@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
+import { Badge, type BadgeTone } from "../components/ui/Badge";
+import { Card } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { SkeletonGrid } from "../components/ui/LoadingSkeleton";
+import { StatCard } from "../components/ui/StatCard";
+import { Button } from "../components/ui/Button";
 
 type Priority = "LOW" | "MEDIUM" | "HIGH";
 
@@ -36,22 +42,19 @@ type ActivityItem = {
   href: string;
 };
 
-const PRIORITY_META: Record<Priority, { label: string; badge: string }> = {
-  HIGH: { label: "High", badge: "bg-priority-high/15 text-priority-high" },
-  MEDIUM: { label: "Medium", badge: "bg-priority-medium/15 text-priority-medium" },
-  LOW: { label: "Low", badge: "bg-priority-low/15 text-priority-low" },
+const PRIORITY_META: Record<Priority, { label: string; tone: BadgeTone; border: string }> = {
+  HIGH: { label: "High", tone: "priority-high", border: "border-l-priority-high" },
+  MEDIUM: { label: "Medium", tone: "priority-medium", border: "border-l-priority-medium" },
+  LOW: { label: "Low", tone: "priority-low", border: "border-l-priority-low" },
 };
 
 const PRIORITY_RANK: Record<Priority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
-const TYPE_BADGE: Record<ActivityItem["type"], string> = {
-  Task: "bg-accent/15 text-accent",
-  Note: "bg-status-completed/15 text-status-completed",
-  Project: "bg-priority-medium/15 text-priority-medium",
+const TYPE_TONE: Record<ActivityItem["type"], BadgeTone> = {
+  Task: "accent",
+  Note: "status-completed",
+  Project: "priority-medium",
 };
-
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -76,6 +79,53 @@ function isOverdue(task: Task): boolean {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   return new Date(task.dueDate).getTime() < startOfToday.getTime();
+}
+
+function TasksIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
+      <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 8.2l1.8 1.8L11 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NotesIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path d="M3 2.5h7l3 3v8a1 1 0 01-1 1H3a1 1 0 01-1-1v-10a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M5.5 7h5M5.5 9.5h5M5.5 12h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProjectsIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path d="M2 4.5a1 1 0 011-1h3l1.2 1.5H13a1 1 0 011 1V12a1 1 0 01-1 1H3a1 1 0 01-1-1v-7.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SectionHeader({
+  index,
+  title,
+  action,
+}: {
+  index: string;
+  title: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-sm font-semibold text-accent">{index}</span>
+        <span className="h-px w-8 bg-gradient-to-r from-accent/50 to-transparent" aria-hidden="true" />
+        <h2 className="text-xl font-bold tracking-tight text-foreground">{title}</h2>
+      </div>
+      {action}
+    </div>
+  );
 }
 
 export default function Home() {
@@ -174,6 +224,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadStats();
   }, [loadStats]);
 
@@ -189,137 +240,134 @@ export default function Home() {
     : [];
 
   const quickActions = [
-    { label: "Create Task", href: "/tasks" },
-    { label: "Create Note", href: "/notes" },
-    { label: "Create Project", href: "/projects" },
+    { label: "Create Task", description: "Add a new task", href: "/tasks", icon: <TasksIcon /> },
+    { label: "Create Note", description: "Capture an idea", href: "/notes", icon: <NotesIcon /> },
+    { label: "Create Project", description: "Start something new", href: "/projects", icon: <ProjectsIcon /> },
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background px-4 py-8 sm:px-8 sm:py-10 lg:px-10">
+    <main className="relative min-h-screen overflow-hidden bg-background px-4 py-10 sm:px-8 sm:py-14 lg:px-10">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl"
+        className="pointer-events-none absolute -top-52 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl animate-glow-pulse"
       />
 
       <div className="relative mx-auto max-w-6xl">
-        <header className="mb-8 border-b border-border pb-6">
-          <p className="font-mono text-xs tracking-wide text-muted">OPS · 00 DASHBOARD</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        <header className="mb-10 border-b border-border pb-7">
+          <p className="font-mono text-xs font-medium tracking-[0.2em] text-accent">
+            OPS · 00 DASHBOARD
+          </p>
+          <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
             Dashboard
           </h1>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-3 max-w-xl text-base text-muted">
             Your personal command center at a glance.
           </p>
         </header>
 
-        {status === "loading" && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
-              />
-            ))}
-          </div>
-        )}
+        {status === "loading" && <SkeletonGrid count={6} />}
 
         {status === "error" && (
-          <div className="rounded-xl border border-danger/40 border-l-4 border-l-danger bg-surface p-5">
+          <Card variant="raised" className="border-l-4 border-l-danger">
             <p className="font-semibold text-foreground">Couldn&apos;t load dashboard</p>
             <p className="mt-1 text-sm text-muted">{error}</p>
-            <button
-              onClick={loadStats}
-              className={`mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 ${FOCUS_RING}`}
-            >
+            <Button onClick={loadStats} className="mt-4">
               Retry
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {status === "success" && stats && (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {cards.map((card) => (
-                <div
+              {cards.map((card, index) => (
+                <StatCard
                   key={card.label}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] p-5 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20"
-                >
-                  <p className="text-sm text-muted">{card.label}</p>
-                  <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
-                    {card.value}
-                  </p>
-                </div>
+                  label={card.label}
+                  value={card.value}
+                  animateDelayMs={index * 60}
+                />
               ))}
             </div>
 
-            <section className="mt-8">
-              <h2 className="mb-4 text-xl font-bold text-foreground">Quick Actions</h2>
-              <div className="flex flex-wrap gap-3">
+            <section className="mt-12 animate-fade-in-up" style={{ animationDelay: "140ms" }}>
+              <SectionHeader index="01" title="Quick Actions" />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {quickActions.map((action) => (
-                  <Link
-                    key={action.label}
-                    href={action.href}
-                    className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 ${FOCUS_RING}`}
-                  >
-                    {action.label}
+                  <Link key={action.label} href={action.href} className="block">
+                    <Card
+                      variant="raised"
+                      hoverable
+                      className="group flex items-center gap-3 border-l-2 border-l-transparent transition-colors duration-150 hover:border-l-accent"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent transition-transform duration-150 group-hover:scale-105">
+                        {action.icon}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-foreground">
+                          {action.label}
+                        </span>
+                        <span className="block truncate text-xs text-muted">
+                          {action.description}
+                        </span>
+                      </span>
+                    </Card>
                   </Link>
                 ))}
               </div>
             </section>
 
-            <section className="mt-8">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-foreground">Upcoming Tasks</h2>
-                <Link
-                  href="/tasks"
-                  className={`rounded text-sm font-medium text-accent transition-colors hover:underline ${FOCUS_RING}`}
-                >
-                  View all tasks →
-                </Link>
-              </div>
+            <section className="mt-12 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+              <SectionHeader
+                index="02"
+                title="Upcoming Tasks"
+                action={
+                  <Link
+                    href="/tasks"
+                    className="text-sm font-medium text-accent transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+                  >
+                    View all tasks →
+                  </Link>
+                }
+              />
 
               {upcomingTasks.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
-                  <p className="font-semibold text-foreground">Nothing pending</p>
-                  <p className="mt-1 text-sm text-muted">
-                    All caught up — no incomplete tasks right now.
-                  </p>
-                </div>
+                <EmptyState
+                  title="Nothing pending"
+                  message="All caught up — no incomplete tasks right now."
+                />
               ) : (
                 <ul className="space-y-2">
-                  {upcomingTasks.map((task) => {
+                  {upcomingTasks.map((task, index) => {
                     const priority = PRIORITY_META[task.priority];
                     const overdue = isOverdue(task);
                     return (
-                      <li key={task.id}>
-                        <Link
-                          href="/tasks"
-                          className={`flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 sm:flex-row sm:items-center sm:justify-between ${FOCUS_RING}`}
-                        >
-                          <span className="min-w-0 break-words font-medium text-foreground">
-                            {task.title}
-                          </span>
-                          <span className="flex flex-wrap items-center gap-2 text-xs">
-                            <span
-                              className={`rounded-full px-2 py-0.5 font-semibold ${priority.badge}`}
-                            >
-                              {priority.label}
+                      <li
+                        key={task.id}
+                        className="animate-fade-in-up"
+                        style={{ animationDelay: `${240 + index * 40}ms` }}
+                      >
+                        <Link href="/tasks" className="block">
+                          <Card
+                            variant="raised"
+                            hoverable
+                            className={`border-l-4 ${priority.border} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}
+                          >
+                            <span className="min-w-0 break-words text-base font-semibold text-foreground">
+                              {task.title}
                             </span>
-                            {task.dueDate && (
-                              <span
-                                className={
-                                  overdue ? "font-medium text-danger" : "text-muted"
-                                }
-                              >
-                                Due {formatDate(task.dueDate)}
-                              </span>
-                            )}
-                            {overdue && (
-                              <span className="rounded-full bg-danger/15 px-2 py-0.5 font-semibold text-danger">
-                                Overdue
-                              </span>
-                            )}
-                          </span>
+                            <span className="flex shrink-0 flex-wrap items-center gap-2">
+                              <Badge tone={priority.tone}>{priority.label}</Badge>
+                              {task.dueDate && (
+                                <span
+                                  className={`text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}
+                                >
+                                  Due {formatDate(task.dueDate)}
+                                </span>
+                              )}
+                              {overdue && <Badge tone="danger">Overdue</Badge>}
+                            </span>
+                          </Card>
                         </Link>
                       </li>
                     );
@@ -328,37 +376,38 @@ export default function Home() {
               )}
             </section>
 
-            <section className="mt-8">
-              <h2 className="mb-4 text-xl font-bold text-foreground">Recent Activity</h2>
+            <section className="mt-12 animate-fade-in-up" style={{ animationDelay: "260ms" }}>
+              <SectionHeader index="03" title="Recent Activity" />
 
               {recentActivity.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
-                  <p className="font-semibold text-foreground">No activity yet</p>
-                  <p className="mt-1 text-sm text-muted">
-                    Create a task, note, or project to see it here.
-                  </p>
-                </div>
+                <EmptyState
+                  title="No activity yet"
+                  message="Create a task, note, or project to see it here."
+                />
               ) : (
-                <ul className="space-y-2">
-                  {recentActivity.map((item) => (
-                    <li key={item.key}>
-                      <Link
-                        href={item.href}
-                        className={`flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 sm:flex-row sm:items-center sm:justify-between ${FOCUS_RING}`}
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${TYPE_BADGE[item.type]}`}
-                          >
-                            {item.type}
+                <ul className="space-y-1.5">
+                  {recentActivity.map((item, index) => (
+                    <li
+                      key={item.key}
+                      className="animate-fade-in-up"
+                      style={{ animationDelay: `${300 + index * 30}ms` }}
+                    >
+                      <Link href={item.href} className="block">
+                        <Card
+                          variant="raised"
+                          hoverable
+                          className="flex items-center justify-between gap-3 py-3"
+                        >
+                          <span className="flex min-w-0 items-center gap-2.5">
+                            <Badge tone={TYPE_TONE[item.type]}>{item.type}</Badge>
+                            <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                              {item.title}
+                            </span>
                           </span>
-                          <span className="min-w-0 break-words font-medium text-foreground">
-                            {item.title}
+                          <span className="shrink-0 text-xs text-muted">
+                            {formatDateTime(item.createdAt)}
                           </span>
-                        </span>
-                        <span className="shrink-0 text-xs text-muted">
-                          {formatDateTime(item.createdAt)}
-                        </span>
+                        </Card>
                       </Link>
                     </li>
                   ))}

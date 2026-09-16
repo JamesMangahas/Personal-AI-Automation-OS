@@ -109,6 +109,7 @@ export default function NotesPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNotes();
   }, [loadNotes]);
 
@@ -128,6 +129,7 @@ export default function NotesPage() {
 
   useEffect(() => {
     if (categoryFilter !== "ALL" && !availableCategories.includes(categoryFilter)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCategoryFilter("ALL");
     }
   }, [availableCategories, categoryFilter]);
@@ -406,7 +408,7 @@ export default function NotesPage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS · 02 NOTES</p>
+            <p className="font-mono text-xs tracking-wide text-muted">OPS Ã‚Â· 02 NOTES</p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Notes
             </h1>
@@ -491,8 +493,8 @@ export default function NotesPage() {
                   <option value="NEWEST">Newest first</option>
                   <option value="OLDEST">Oldest first</option>
                   <option value="UPDATED">Recently updated</option>
-                  <option value="TITLE_ASC">Title A–Z</option>
-                  <option value="TITLE_DESC">Title Z–A</option>
+                  <option value="TITLE_ASC">Title AÃ¢â‚¬â€œZ</option>
+                  <option value="TITLE_DESC">Title ZÃ¢â‚¬â€œA</option>
                 </select>
               </div>
 
@@ -524,7 +526,7 @@ export default function NotesPage() {
               aria-label="Dismiss message"
               className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
             >
-              ✕
+              Ã¢Å“â€¢
             </button>
           </div>
         )}
@@ -608,7 +610,7 @@ export default function NotesPage() {
                               : "text-muted hover:text-accent"
                           }`}
                         >
-                          {note.pinned ? "★" : "☆"}
+                          {note.pinned ? "Ã¢Ëœâ€¦" : "Ã¢Ëœâ€ "}
                         </button>
                         <p className="min-w-0 break-words font-semibold text-foreground">
                           {note.title}
@@ -688,7 +690,7 @@ export default function NotesPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                Ã¢Å“â€¢
               </button>
             </div>
 
@@ -794,7 +796,7 @@ export default function NotesPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                Ã¢Å“â€¢
               </button>
             </div>
 
@@ -893,7 +895,7 @@ export default function NotesPage() {
             <h2 className="text-lg font-bold text-foreground">Delete note?</h2>
 
             <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background p-3">
-              {deletingNote.pinned && <span className="text-accent">★</span>}
+              {deletingNote.pinned && <span className="text-accent">Ã¢Ëœâ€¦</span>}
               <span className="min-w-0 truncate font-semibold text-foreground">
                 {deletingNote.title}
               </span>

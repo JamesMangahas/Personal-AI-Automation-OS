@@ -142,6 +142,7 @@ export default function JobsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadJobs();
   }, [loadJobs]);
 
@@ -382,7 +383,7 @@ export default function JobsPage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS · 04 JOBS</p>
+            <p className="font-mono text-xs tracking-wide text-muted">OPS Â· 04 JOBS</p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Job Applications
             </h1>
@@ -469,7 +470,7 @@ export default function JobsPage() {
               aria-label="Dismiss message"
               className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
             >
-              ✕
+              âœ•
             </button>
           </div>
         )}
@@ -588,7 +589,7 @@ export default function JobsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -777,7 +778,7 @@ export default function JobsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 

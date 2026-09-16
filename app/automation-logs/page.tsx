@@ -133,6 +133,7 @@ export default function AutomationLogsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
@@ -342,7 +343,7 @@ export default function AutomationLogsPage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS · 06 LOGS</p>
+            <p className="font-mono text-xs tracking-wide text-muted">OPS Â· 06 LOGS</p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Automation Logs
             </h1>
@@ -466,7 +467,7 @@ export default function AutomationLogsPage() {
               aria-label="Dismiss message"
               className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
             >
-              ✕
+              âœ•
             </button>
           </div>
         )}
@@ -538,7 +539,7 @@ export default function AutomationLogsPage() {
                       </p>
                       <p className="mt-0.5 text-xs text-muted">
                         {formatDateTime(log.createdAt)}
-                        {log.executionTime !== null && ` · ${log.executionTime}ms`}
+                        {log.executionTime !== null && ` Â· ${log.executionTime}ms`}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -587,14 +588,14 @@ export default function AutomationLogsPage() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md border border-border bg-surface-raised p-6">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-xl font-bold text-foreground">
-                {viewingLog.automation.name} — Log details
+                {viewingLog.automation.name} â€” Log details
               </h2>
               <button
                 onClick={() => setViewingLog(null)}
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -654,7 +655,7 @@ export default function AutomationLogsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -785,7 +786,7 @@ export default function AutomationLogsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -912,7 +913,7 @@ export default function AutomationLogsPage() {
                 {deletingLog.automation.name}
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                {formatDateTime(deletingLog.createdAt)} · {STATUS_META[deletingLog.status].label}
+                {formatDateTime(deletingLog.createdAt)} Â· {STATUS_META[deletingLog.status].label}
               </p>
             </div>
 

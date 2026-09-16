@@ -29,7 +29,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, jobApplication });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch job application." },
       { status: 500 }
@@ -127,7 +127,7 @@ export async function PATCH(
     const jobApplication = await prisma.jobApplication.update({ where: { id }, data });
 
     return NextResponse.json({ success: true, jobApplication });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to update job application." },
       { status: 500 }
@@ -153,7 +153,7 @@ export async function DELETE(
     await prisma.jobApplication.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Job application deleted." });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to delete job application." },
       { status: 500 }

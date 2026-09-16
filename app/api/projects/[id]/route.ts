@@ -21,7 +21,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, project });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch project." },
       { status: 500 }
@@ -148,7 +148,7 @@ export async function PATCH(
     const project = await prisma.project.update({ where: { id }, data });
 
     return NextResponse.json({ success: true, project });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to update project." },
       { status: 500 }
@@ -174,7 +174,7 @@ export async function DELETE(
     await prisma.project.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Project deleted." });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to delete project." },
       { status: 500 }

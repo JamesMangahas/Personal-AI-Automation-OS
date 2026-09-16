@@ -130,6 +130,7 @@ export default function ProjectsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProjects();
   }, [loadProjects]);
 
@@ -149,6 +150,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (categoryFilter !== "ALL" && !availableCategories.includes(categoryFilter)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCategoryFilter("ALL");
     }
   }, [availableCategories, categoryFilter]);
@@ -407,7 +409,7 @@ export default function ProjectsPage() {
       <div className="relative mx-auto max-w-6xl">
         <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS · 03 PROJECTS</p>
+            <p className="font-mono text-xs tracking-wide text-muted">OPS Ã‚Â· 03 PROJECTS</p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Projects
             </h1>
@@ -513,8 +515,8 @@ export default function ProjectsPage() {
                 >
                   <option value="NEWEST">Newest first</option>
                   <option value="OLDEST">Oldest first</option>
-                  <option value="NAME_ASC">Name A–Z</option>
-                  <option value="NAME_DESC">Name Z–A</option>
+                  <option value="NAME_ASC">Name AÃ¢â‚¬â€œZ</option>
+                  <option value="NAME_DESC">Name ZÃ¢â‚¬â€œA</option>
                   <option value="DUE_DATE">Due date</option>
                 </select>
               </div>
@@ -547,7 +549,7 @@ export default function ProjectsPage() {
               aria-label="Dismiss message"
               className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
             >
-              ✕
+              Ã¢Å“â€¢
             </button>
           </div>
         )}
@@ -688,7 +690,7 @@ export default function ProjectsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                Ã¢Å“â€¢
               </button>
             </div>
 
@@ -840,7 +842,7 @@ export default function ProjectsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                Ã¢Å“â€¢
               </button>
             </div>
 

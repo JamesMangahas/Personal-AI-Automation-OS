@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 
 const VALID_PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
@@ -20,7 +20,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, task });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch task." },
       { status: 500 }
@@ -128,7 +128,7 @@ export async function PATCH(
     const task = await prisma.task.update({ where: { id }, data });
 
     return NextResponse.json({ success: true, task });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to update task." },
       { status: 500 }
@@ -154,7 +154,7 @@ export async function DELETE(
     await prisma.task.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Task deleted." });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to delete task." },
       { status: 500 }

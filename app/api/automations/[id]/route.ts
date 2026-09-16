@@ -20,7 +20,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, automation });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch automation." },
       { status: 500 }
@@ -106,7 +106,7 @@ export async function PATCH(
     const automation = await prisma.automation.update({ where: { id }, data });
 
     return NextResponse.json({ success: true, automation });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to update automation." },
       { status: 500 }
@@ -132,7 +132,7 @@ export async function DELETE(
     await prisma.automation.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Automation deleted." });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to delete automation." },
       { status: 500 }

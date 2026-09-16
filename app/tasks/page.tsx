@@ -145,6 +145,7 @@ export default function TasksPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTasks();
   }, [loadTasks]);
 
@@ -412,7 +413,7 @@ export default function TasksPage() {
     <main className="min-h-screen bg-background px-4 py-8 sm:px-8 sm:py-10 lg:px-10">
       <div className="mx-auto max-w-4xl">
         <header className="mb-8 border-b border-border pb-6">
-          <p className="font-mono text-xs tracking-wide text-muted">OPS · 01 TASKS</p>
+          <p className="font-mono text-xs tracking-wide text-muted">OPS Â· 01 TASKS</p>
           <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
@@ -530,7 +531,7 @@ export default function TasksPage() {
               aria-label="Dismiss message"
               className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
             >
-              ✕
+              âœ•
             </button>
           </div>
         )}
@@ -722,7 +723,7 @@ export default function TasksPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -836,7 +837,7 @@ export default function TasksPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 

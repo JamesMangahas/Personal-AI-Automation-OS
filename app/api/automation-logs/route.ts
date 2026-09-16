@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
+import { LogStatus } from "../../../app/generated/prisma/client";
 
-const VALID_STATUSES = ["SUCCESS", "FAILED"];
+const VALID_STATUSES = [LogStatus.SUCCESS, LogStatus.FAILED];
 
 export async function GET(request: Request) {
   try {
@@ -9,9 +10,11 @@ export async function GET(request: Request) {
     const automationId = searchParams.get("automationId");
     const statusParam = searchParams.get("status");
 
-    const where: Record<string, string> = {};
+    const where: { automationId?: string; status?: LogStatus } = {};
     if (automationId) where.automationId = automationId;
-    if (statusParam && VALID_STATUSES.includes(statusParam)) where.status = statusParam;
+    if (statusParam && VALID_STATUSES.includes(statusParam as LogStatus)) {
+      where.status = statusParam as LogStatus;
+    }
 
     const logs = await prisma.automationLog.findMany({
       where,
@@ -20,7 +23,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, logs });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch automation logs." },
       { status: 500 }
@@ -34,6 +37,7 @@ export async function POST(request: Request) {
 
     const automationId =
       typeof body.automationId === "string" ? body.automationId.trim() : "";
+
     if (!automationId) {
       return NextResponse.json(
         { success: false, error: "automationId is required." },
@@ -41,7 +45,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const automation = await prisma.automation.findUnique({ where: { id: automationId } });
+    const automation = await prisma.automation.findUnique({
+      where: { id: automationId },
+    });
+
     if (!automation) {
       return NextResponse.json(
         { success: false, error: "automationId does not refer to an existing automation." },
@@ -49,7 +56,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (typeof body.status !== "string" || !VALID_STATUSES.includes(body.status)) {
+    if (
+      typeof body.status !== "string" ||
+      !VALID_STATUSES.includes(body.status as LogStatus)
+    ) {
       return NextResponse.json(
         { success: false, error: `status must be one of: ${VALID_STATUSES.join(", ")}.` },
         { status: 400 }
@@ -58,40 +68,44 @@ export async function POST(request: Request) {
 
     const data: {
       automationId: string;
-      status: string;
+      status: LogStatus;
       executionTime?: number;
       error?: string;
       input?: string;
       output?: string;
-    } = { automationId, status: body.status };
+    } = {
+      automationId,
+      status: body.status as LogStatus,
+    };
 
-    if (body.executionTime !== undefined && body.executionTime !== null && body.executionTime !== "") {
+    if (
+      body.executionTime !== undefined &&
+      body.executionTime !== null &&
+      body.executionTime !== ""
+    ) {
       const executionTime = Number(body.executionTime);
+
       if (!Number.isFinite(executionTime) || executionTime < 0) {
         return NextResponse.json(
           { success: false, error: "executionTime must be a non-negative number." },
           { status: 400 }
         );
       }
+
       data.executionTime = Math.round(executionTime);
     }
 
-    const stringFields: Array<[string, string]> = [
-      ["error", "error"],
-      ["input", "input"],
-      ["output", "output"],
-    ];
-    for (const [bodyKey, dataKey] of stringFields) {
-      if (body[bodyKey] !== undefined) {
-        if (typeof body[bodyKey] !== "string") {
+    for (const dataKey of ["error", "input", "output"] as const) {
+      if (body[dataKey] !== undefined) {
+        if (typeof body[dataKey] !== "string") {
           return NextResponse.json(
-            { success: false, error: `${bodyKey} must be a string.` },
+            { success: false, error: `${dataKey} must be a string.` },
             { status: 400 }
           );
         }
-        if (body[bodyKey].trim()) {
-          (data as Record<string, string>)[dataKey] = body[bodyKey].trim();
-        }
+
+        const value = body[dataKey].trim();
+        if (value) data[dataKey] = value;
       }
     }
 
@@ -101,7 +115,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, log }, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to create automation log." },
       { status: 500 }

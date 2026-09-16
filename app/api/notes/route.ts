@@ -8,7 +8,7 @@ export async function GET() {
     });
 
     return NextResponse.json({ success: true, notes });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch notes." },
       { status: 500 }
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     const note = await prisma.note.create({ data });
 
     return NextResponse.json({ success: true, note }, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to create note." },
       { status: 500 }

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 
 const VALID_PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
@@ -10,7 +10,7 @@ export async function GET() {
     });
 
     return NextResponse.json({ success: true, tasks });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to fetch tasks." },
       { status: 500 }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const task = await prisma.task.create({ data });
 
     return NextResponse.json({ success: true, task }, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to create task." },
       { status: 500 }

@@ -122,6 +122,7 @@ export default function ProjectDetailsPage() {
   }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (id) loadProject();
   }, [id, loadProject]);
 
@@ -256,7 +257,7 @@ export default function ProjectDetailsPage() {
           href="/projects"
           className={`mb-6 inline-flex items-center gap-1 rounded text-sm font-medium text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
         >
-          ← Back to Projects
+          â† Back to Projects
         </Link>
 
         {status === "loading" && (
@@ -345,13 +346,13 @@ export default function ProjectDetailsPage() {
               <div>
                 <p className="text-xs text-muted">Start date</p>
                 <p className="mt-0.5 text-foreground">
-                  {project.startDate ? formatDate(project.startDate) : "—"}
+                  {project.startDate ? formatDate(project.startDate) : "â€”"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted">Due date</p>
                 <p className="mt-0.5 text-foreground">
-                  {project.dueDate ? formatDate(project.dueDate) : "—"}
+                  {project.dueDate ? formatDate(project.dueDate) : "â€”"}
                 </p>
               </div>
               <div>
@@ -377,7 +378,7 @@ export default function ProjectDetailsPage() {
                 className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
                 aria-label="Close"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
