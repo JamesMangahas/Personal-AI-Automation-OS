@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import NavBar from "../components/NavBar";
+import AppShell from "../components/AppShell";
 import { ToastProvider } from "../components/ui/Toast";
 import "./globals.css";
 
@@ -25,10 +25,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background">
+      <body className="min-h-full bg-background">
         <ToastProvider>
-          <NavBar />
-          <div className="flex-1">{children}</div>
+          <AppShell>{children}</AppShell>
         </ToastProvider>
       </body>
     </html>

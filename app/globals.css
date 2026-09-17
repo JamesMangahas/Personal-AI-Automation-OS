@@ -58,6 +58,7 @@
   --animate-toast-in: toast-in 220ms ease-out both;
   --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
   --animate-glow-pulse: glow-pulse 2.4s ease-in-out infinite;
+  --animate-slide-in-left: slide-in-left 220ms ease-out both;
 
   @keyframes fade-in {
     from {
@@ -118,6 +119,17 @@
     }
     50% {
       opacity: 0.9;
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
     }
   }
 }
