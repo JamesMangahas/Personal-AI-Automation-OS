@@ -153,6 +153,7 @@ function KpiCard({
   accentClass,
   barClass,
   delayMs,
+  href,
 }: {
   label: string;
   value: number;
@@ -160,25 +161,39 @@ function KpiCard({
   accentClass: string;
   barClass: string;
   delayMs: number;
+  href: string;
 }) {
   const displayValue = useCountUp(value);
   return (
-    <Card
-      variant="raised"
-      hoverable
-      animateIn
-      animationDelayMs={delayMs}
-      className="relative overflow-hidden pt-4"
+    <Link
+      href={href}
+      className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <span className={`absolute inset-x-0 top-0 h-0.5 ${barClass}`} aria-hidden="true" />
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted">{label}</p>
-        <span className={accentClass}>{icon}</span>
-      </div>
-      <p className="mt-3 text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
-        {displayValue}
-      </p>
-    </Card>
+      <Card
+        variant="raised"
+        hoverable
+        animateIn
+        animationDelayMs={delayMs}
+        className="group relative cursor-pointer overflow-hidden pt-4"
+      >
+        <span className={`absolute inset-x-0 top-0 h-0.5 ${barClass}`} aria-hidden="true" />
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted">{label}</p>
+          <span className={accentClass}>{icon}</span>
+        </div>
+        <div className="mt-3 flex items-end justify-between">
+          <p className="text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
+            {displayValue}
+          </p>
+          <span
+            aria-hidden="true"
+            className="text-muted opacity-0 transition-opacity duration-150 group-hover:text-accent group-hover:opacity-100"
+          >
+            -&gt;
+          </span>
+        </div>
+      </Card>
+    </Link>
   );
 }
 
@@ -389,12 +404,12 @@ export default function Home() {
         {status === "success" && stats && (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <KpiCard label="Total Tasks" value={stats.totalTasks} icon={<TasksIcon />} accentClass="text-accent" barClass="bg-accent" delayMs={0} />
-              <KpiCard label="Completed Tasks" value={stats.completedTasks} icon={<TasksIcon />} accentClass="text-status-completed" barClass="bg-status-completed" delayMs={50} />
-              <KpiCard label="Pending Tasks" value={stats.pendingTasks} icon={<TasksIcon />} accentClass="text-priority-medium" barClass="bg-priority-medium" delayMs={100} />
-              <KpiCard label="Total Notes" value={stats.totalNotes} icon={<NotesIcon />} accentClass="text-accent" barClass="bg-accent" delayMs={150} />
-              <KpiCard label="Pinned Notes" value={stats.pinnedNotes} icon={<NotesIcon />} accentClass="text-status-completed" barClass="bg-status-completed" delayMs={200} />
-              <KpiCard label="Total Projects" value={stats.totalProjects} icon={<ProjectsIcon />} accentClass="text-priority-medium" barClass="bg-priority-medium" delayMs={250} />
+              <KpiCard label="Total Tasks" value={stats.totalTasks} icon={<TasksIcon />} accentClass="text-accent" barClass="bg-accent" delayMs={0} href="/tasks" />
+              <KpiCard label="Completed Tasks" value={stats.completedTasks} icon={<TasksIcon />} accentClass="text-status-completed" barClass="bg-status-completed" delayMs={50} href="/tasks" />
+              <KpiCard label="Pending Tasks" value={stats.pendingTasks} icon={<TasksIcon />} accentClass="text-priority-medium" barClass="bg-priority-medium" delayMs={100} href="/tasks" />
+              <KpiCard label="Total Notes" value={stats.totalNotes} icon={<NotesIcon />} accentClass="text-accent" barClass="bg-accent" delayMs={150} href="/notes" />
+              <KpiCard label="Pinned Notes" value={stats.pinnedNotes} icon={<NotesIcon />} accentClass="text-status-completed" barClass="bg-status-completed" delayMs={200} href="/notes" />
+              <KpiCard label="Total Projects" value={stats.totalProjects} icon={<ProjectsIcon />} accentClass="text-priority-medium" barClass="bg-priority-medium" delayMs={250} href="/projects" />
             </div>
 
             <section className="mt-14 animate-fade-in-up" style={{ animationDelay: "160ms" }}>

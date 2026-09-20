@@ -1,6 +1,18 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { DateInput } from "../../components/ui/DateInput";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Input } from "../../components/ui/Input";
+import { SkeletonList } from "../../components/ui/LoadingSkeleton";
+import { Modal } from "../../components/ui/Modal";
+import { Select } from "../../components/ui/Select";
+import { Textarea } from "../../components/ui/Textarea";
+import { useToast } from "../../components/ui/Toast";
 
 type Priority = "LOW" | "MEDIUM" | "HIGH";
 
@@ -17,7 +29,6 @@ type Task = {
 };
 
 type LoadStatus = "loading" | "success" | "error";
-type Toast = { type: "success" | "error"; message: string };
 type StatusFilter = "ALL" | "COMPLETED" | "INCOMPLETE";
 type PriorityFilter = "ALL" | Priority;
 type SortOption = "NEWEST" | "OLDEST" | "DUE_DATE" | "PRIORITY";
@@ -30,38 +41,17 @@ type FormState = {
   category: string;
 };
 
-type PriorityMetaEntry = { label: string; dot: string; text: string; border: string; badge: string };
-
-const PRIORITY_META: Record<Priority, PriorityMetaEntry> = {
-  HIGH: {
-    label: "High",
-    dot: "bg-priority-high",
-    text: "text-priority-high",
-    border: "border-l-priority-high",
-    badge: "bg-priority-high/15 text-priority-high",
-  },
-  MEDIUM: {
-    label: "Medium",
-    dot: "bg-priority-medium",
-    text: "text-priority-medium",
-    border: "border-l-priority-medium",
-    badge: "bg-priority-medium/15 text-priority-medium",
-  },
-  LOW: {
-    label: "Low",
-    dot: "bg-priority-low",
-    text: "text-priority-low",
-    border: "border-l-priority-low",
-    badge: "bg-priority-low/15 text-priority-low",
-  },
+const PRIORITY_META: Record<Priority, { label: string; tone: BadgeTone; border: string }> = {
+  HIGH: { label: "High", tone: "priority-high", border: "border-l-priority-high" },
+  MEDIUM: { label: "Medium", tone: "priority-medium", border: "border-l-priority-medium" },
+  LOW: { label: "Low", tone: "priority-low", border: "border-l-priority-low" },
 };
 
 const PRIORITY_RANK: Record<Priority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
 const CATEGORY_PALETTE = ["#2DD4BF", "#8B5CF6", "#F59E0B", "#FB7185", "#38BDF8", "#A3E635"];
 
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const MICRO_LABEL = "mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-muted";
 
 function categoryColor(category: string): string {
   let hash = 0;
@@ -100,6 +90,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function TasksPage() {
+  const { showToast } = useToast();
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -119,8 +111,6 @@ export default function TasksPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -149,12 +139,6 @@ export default function TasksPage() {
     loadTasks();
   }, [loadTasks]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
   const visibleTasks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -173,7 +157,7 @@ export default function TasksPage() {
       return true;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "OLDEST":
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -190,9 +174,16 @@ export default function TasksPage() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
-
-    return sorted;
   }, [tasks, searchQuery, statusFilter, priorityFilter, sortBy]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || statusFilter !== "ALL" || priorityFilter !== "ALL";
+
+  function clearFilters() {
+    setSearchQuery("");
+    setStatusFilter("ALL");
+    setPriorityFilter("ALL");
+  }
 
   function openCreateModal() {
     setCreateForm(EMPTY_FORM);
@@ -236,7 +227,7 @@ export default function TasksPage() {
 
       setIsCreateOpen(false);
       setCreateForm(EMPTY_FORM);
-      setToast({ type: "success", message: `"${data.task.title}" was created.` });
+      showToast("success", `"${data.task.title}" was created.`);
       await loadTasks();
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create task.");
@@ -320,7 +311,7 @@ export default function TasksPage() {
       }
 
       setEditingTask(null);
-      setToast({ type: "success", message: `"${data.task.title}" was updated.` });
+      showToast("success", `"${data.task.title}" was updated.`);
       await loadTasks();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to update task.");
@@ -357,7 +348,7 @@ export default function TasksPage() {
 
       const deletedTitle = deletingTask.title;
       setDeletingTask(null);
-      setToast({ type: "success", message: `"${deletedTitle}" was deleted.` });
+      showToast("success", `"${deletedTitle}" was deleted.`);
       await loadTasks();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete task.");
@@ -368,7 +359,6 @@ export default function TasksPage() {
 
   async function handleToggleComplete(task: Task) {
     setTogglingId(task.id);
-
     const nextCompleted = !task.completed;
 
     try {
@@ -386,609 +376,349 @@ export default function TasksPage() {
       setTasks((current) =>
         current.map((t) => (t.id === task.id ? { ...t, completed: nextCompleted } : t))
       );
-      setToast({
-        type: "success",
-        message: `"${task.title}" marked ${nextCompleted ? "complete" : "incomplete"}.`,
-      });
+      showToast("success", `"${task.title}" marked ${nextCompleted ? "complete" : "incomplete"}.`);
     } catch (err) {
-      setToast({
-        type: "error",
-        message: err instanceof Error ? err.message : "Failed to update task.",
-      });
+      showToast("error", err instanceof Error ? err.message : "Failed to update task.");
     } finally {
       setTogglingId(null);
     }
   }
 
-  const hasActiveFilters =
-    searchQuery.trim() !== "" || statusFilter !== "ALL" || priorityFilter !== "ALL";
-
-  function clearFilters() {
-    setSearchQuery("");
-    setStatusFilter("ALL");
-    setPriorityFilter("ALL");
-  }
-
   return (
-    <main className="min-h-screen bg-background px-4 py-8 sm:px-8 sm:py-10 lg:px-10">
+    <main className="min-h-screen bg-background px-4 py-10 sm:px-8 sm:py-14 lg:px-10">
       <div className="mx-auto max-w-4xl">
-        <header className="mb-8 border-b border-border pb-6">
-          <p className="font-mono text-xs tracking-wide text-muted">OPS Â· 01 TASKS</p>
-          <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <header className="mb-10 border-b border-border pb-8">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">System / Tasks</p>
+          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
                 Tasks
               </h1>
-              <p className="mt-1 text-sm text-muted">
-                {status === "success"
-                  ? `${visibleTasks.length} of ${tasks.length} task${
-                      tasks.length === 1 ? "" : "s"
-                    }`
-                  : "Personal AI Automation OS"}
+              <p className="mt-2 max-w-md text-sm text-muted sm:text-base">
+                Track, prioritize, and close out your work.
               </p>
             </div>
-            <button
-              onClick={openCreateModal}
-              className={`w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 sm:w-auto ${FOCUS_RING}`}
-            >
-              Create task
-            </button>
+            <Button onClick={openCreateModal}>Create task</Button>
           </div>
         </header>
 
         {status === "success" && tasks.length > 0 && (
-          <div className="mb-6 flex flex-col gap-3 rounded-md border border-border bg-surface p-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="flex-1 sm:min-w-[220px]">
-              <label htmlFor="task-search" className="sr-only">
-                Search tasks
-              </label>
-              <input
-                id="task-search"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search title, description, category..."
-                className={`w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <div>
-                <label htmlFor="status-filter" className="sr-only">
-                  Filter by status
+          <Card variant="raised" className="mb-8">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="lg:col-span-2">
+                <label htmlFor="task-search" className={MICRO_LABEL}>
+                  Search
                 </label>
-                <select
+                <Input
+                  id="task-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Title, description, category..."
+                />
+              </div>
+              <div>
+                <label htmlFor="status-filter" className={MICRO_LABEL}>
+                  Status
+                </label>
+                <Select
                   id="status-filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className={`rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
                 >
                   <option value="ALL">All statuses</option>
                   <option value="INCOMPLETE">Incomplete</option>
                   <option value="COMPLETED">Completed</option>
-                </select>
+                </Select>
               </div>
-
               <div>
-                <label htmlFor="priority-filter" className="sr-only">
-                  Filter by priority
+                <label htmlFor="priority-filter" className={MICRO_LABEL}>
+                  Priority
                 </label>
-                <select
+                <Select
                   id="priority-filter"
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
-                  className={`rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
                 >
                   <option value="ALL">All priorities</option>
                   <option value="HIGH">High</option>
                   <option value="MEDIUM">Medium</option>
                   <option value="LOW">Low</option>
-                </select>
+                </Select>
               </div>
-
-              <div>
-                <label htmlFor="sort-by" className="sr-only">
-                  Sort tasks
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+              <div className="max-w-[10rem]">
+                <label htmlFor="sort-by" className={MICRO_LABEL}>
+                  Sort
                 </label>
-                <select
+                <Select
                   id="sort-by"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className={`rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
                 >
                   <option value="NEWEST">Newest first</option>
                   <option value="OLDEST">Oldest first</option>
                   <option value="DUE_DATE">Due date</option>
                   <option value="PRIORITY">Priority</option>
-                </select>
+                </Select>
               </div>
-
               {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className={`rounded-md px-2 text-sm font-medium text-accent transition-colors hover:underline ${FOCUS_RING}`}
-                >
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
                   Clear filters
-                </button>
+                </Button>
               )}
             </div>
-          </div>
+          </Card>
         )}
 
-        {toast && (
-          <div
-            role="status"
-            aria-live="polite"
-            className={`mb-6 flex items-start justify-between gap-3 rounded-md border-l-4 p-4 text-sm ${
-              toast.type === "success"
-                ? "border-l-success bg-surface text-foreground"
-                : "border-l-danger bg-surface text-foreground"
-            }`}
-          >
-            <span>{toast.message}</span>
-            <button
-              onClick={() => setToast(null)}
-              aria-label="Dismiss message"
-              className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
-            >
-              âœ•
-            </button>
-          </div>
-        )}
-
-        {status === "loading" && (
-          <div className="space-y-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-20 animate-pulse rounded-md border border-border bg-surface"
-              />
-            ))}
-          </div>
-        )}
+        {status === "loading" && <SkeletonList count={4} />}
 
         {status === "error" && (
-          <div className="rounded-md border border-danger/40 border-l-4 border-l-danger bg-surface p-5">
+          <Card variant="raised" className="border-l-4 border-l-danger">
             <p className="font-semibold text-foreground">Couldn&apos;t load tasks</p>
             <p className="mt-1 text-sm text-muted">{error}</p>
-            <button
-              onClick={loadTasks}
-              className={`mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 ${FOCUS_RING}`}
-            >
+            <Button onClick={loadTasks} className="mt-4">
               Retry
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {status === "success" && tasks.length === 0 && (
-          <div className="rounded-md border border-dashed border-border bg-surface p-10 text-center">
-            <p className="font-semibold text-foreground">No tasks yet</p>
-            <p className="mt-1 text-sm text-muted">
-              Create your first task to get started.
-            </p>
-          </div>
+          <EmptyState title="No tasks yet" message="Create your first task to get started." />
         )}
 
         {status === "success" && tasks.length > 0 && visibleTasks.length === 0 && (
-          <div className="rounded-md border border-dashed border-border bg-surface p-10 text-center">
-            <p className="font-semibold text-foreground">No tasks found</p>
-            <p className="mt-1 text-sm text-muted">
-              Try a different search term or adjust your filters.
-            </p>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className={`mt-4 rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface-raised ${FOCUS_RING}`}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          <EmptyState
+            title="No tasks found"
+            message="Try a different search term or adjust your filters."
+            action={
+              hasActiveFilters ? (
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : undefined
+            }
+          />
         )}
 
         {status === "success" && visibleTasks.length > 0 && (
-          <ul className="space-y-2">
-            {visibleTasks.map((task, index) => {
-              const priority = PRIORITY_META[task.priority];
-              const isToggling = togglingId === task.id;
-              const overdue = isOverdue(task);
-              return (
-                <li
-                  key={task.id}
-                  className={`flex flex-col gap-3 rounded-md border border-l-4 border-border bg-surface p-4 transition-colors hover:bg-surface-raised sm:flex-row sm:items-start sm:gap-4 sm:p-5 ${priority.border}`}
-                >
-                  <div className="flex flex-1 items-start gap-4">
-                    <span className="mt-1 w-6 shrink-0 font-mono text-xs text-muted">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
+          <>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-mono text-sm font-semibold text-accent">01</span>
+              <span className="h-px w-8 bg-gradient-to-r from-accent/50 to-transparent" aria-hidden="true" />
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Task Queue</h2>
+              <span className="ml-auto font-mono text-xs text-muted">
+                {visibleTasks.length} / {tasks.length}
+              </span>
+            </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleComplete(task)}
-                      disabled={isToggling}
-                      aria-label={
-                        task.completed ? "Mark task incomplete" : "Mark task complete"
-                      }
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors disabled:opacity-50 ${FOCUS_RING} ${
-                        task.completed
-                          ? "border-success bg-success"
-                          : "border-border hover:border-accent"
-                      }`}
+            <ul className="space-y-2">
+              {visibleTasks.map((task, index) => {
+                const priority = PRIORITY_META[task.priority];
+                const isToggling = togglingId === task.id;
+                const overdue = isOverdue(task);
+                return (
+                  <li key={task.id}>
+                    <Card
+                      variant="raised"
+                      hoverable
+                      className={`border-l-4 ${priority.border} flex flex-col gap-3 transition-transform duration-150 hover:translate-x-1 sm:flex-row sm:items-start`}
                     >
-                      {task.completed && (
-                        <svg
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          className="h-3 w-3"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M3 8l3.5 3.5L13 5"
-                            stroke="#05070A"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      )}
-                    </button>
+                      <span className="mt-1 w-6 shrink-0 font-mono text-xs text-muted">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p
-                          className={`font-semibold text-foreground ${
-                            task.completed ? "line-through text-muted" : ""
-                          }`}
-                        >
-                          {task.title}
-                        </p>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleComplete(task)}
+                        disabled={isToggling}
+                        aria-label={task.completed ? "Mark task incomplete" : "Mark task complete"}
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                          task.completed ? "border-success bg-success" : "border-border hover:border-accent"
+                        }`}
+                      >
+                        {task.completed && (
+                          <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3" aria-hidden="true">
+                            <path
+                              d="M3 8l3.5 3.5L13 5"
+                              stroke="#05070A"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </button>
 
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${priority.badge}`}
-                        >
-                          {priority.label}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className={`font-semibold text-foreground ${task.completed ? "line-through text-muted" : ""}`}>
+                            {task.title}
+                          </p>
+                          <Badge tone={priority.tone}>{priority.label}</Badge>
+                          {task.category && (
+                            <span
+                              className="rounded px-2 py-0.5 text-xs font-medium text-background"
+                              style={{ backgroundColor: categoryColor(task.category) }}
+                            >
+                              {task.category}
+                            </span>
+                          )}
+                          {overdue && <Badge tone="danger">Overdue</Badge>}
+                          {isToggling && <span className="text-xs text-muted">Updating...</span>}
+                        </div>
 
-                        {task.category && (
-                          <span
-                            className="rounded px-2 py-0.5 text-xs font-medium text-background"
-                            style={{ backgroundColor: categoryColor(task.category) }}
-                          >
-                            {task.category}
-                          </span>
+                        {task.description && (
+                          <p className={`mt-1 line-clamp-2 text-sm ${task.completed ? "text-muted/70" : "text-muted"}`}>
+                            {task.description}
+                          </p>
                         )}
 
-                        {overdue && (
-                          <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs font-semibold text-danger">
-                            Overdue
-                          </span>
-                        )}
-
-                        {isToggling && (
-                          <span className="text-xs text-muted">Updating...</span>
-                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                          {task.dueDate && (
+                            <span className={overdue ? "font-medium text-danger" : "text-muted"}>
+                              Due {formatDate(task.dueDate)}
+                            </span>
+                          )}
+                          <span className="font-mono text-muted">{task.completed ? "Completed" : "Open"}</span>
+                        </div>
                       </div>
 
-                      {task.description && (
-                        <p
-                          className={`mt-1 line-clamp-2 text-sm ${
-                            task.completed ? "text-muted/70" : "text-muted"
-                          }`}
-                        >
-                          {task.description}
-                        </p>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                        {task.dueDate && (
-                          <span className={overdue ? "font-medium text-danger" : "text-muted"}>
-                            Due {formatDate(task.dueDate)}
-                          </span>
-                        )}
-                        <span className="font-mono text-muted">
-                          {task.completed ? "Completed" : "Open"}
-                        </span>
+                      <div className="flex shrink-0 gap-2 sm:ml-auto">
+                        <Button variant="secondary" size="sm" onClick={() => openEditModal(task)}>
+                          Edit
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => openDeleteConfirm(task)}>
+                          Delete
+                        </Button>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 gap-2 sm:ml-auto">
-                    <button
-                      onClick={() => openEditModal(task)}
-                      className={`rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-raised ${FOCUS_RING}`}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => openDeleteConfirm(task)}
-                      className={`rounded-md border border-danger/40 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10 ${FOCUS_RING}`}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
 
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-md border border-border bg-surface-raised p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">New task</h2>
-              <button
-                onClick={closeCreateModal}
-                className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
-                aria-label="Close"
-              >
-                âœ•
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-5">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Title <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={createForm.title}
-                  onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="What needs to get done?"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Description
-                </label>
-                <textarea
-                  value={createForm.description}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, description: e.target.value })
-                  }
-                  className={`w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  rows={3}
-                  placeholder="Optional details"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Priority
-                  </label>
-                  <select
-                    value={createForm.priority}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, priority: e.target.value as Priority })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Due date
-                  </label>
-                  <input
-                    type="date"
-                    value={createForm.dueDate}
-                    onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={createForm.category}
-                  onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="Optional, e.g. Work"
-                />
-              </div>
-
-              {createError && (
-                <p className="text-sm font-medium text-danger">{createError}</p>
-              )}
-
-              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  disabled={creating}
-                  className={`rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  {creating ? "Creating..." : "Create task"}
-                </button>
-              </div>
-            </form>
+      <Modal open={isCreateOpen} onClose={closeCreateModal} title="New task" closeDisabled={creating}>
+        <form onSubmit={handleCreateSubmit} className="space-y-5">
+          <Input
+            label="Title"
+            required
+            name="title"
+            value={createForm.title}
+            onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+            placeholder="What needs to get done?"
+            autoFocus
+          />
+          <Textarea
+            label="Description"
+            name="description"
+            value={createForm.description}
+            onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+            placeholder="Optional details"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Priority"
+              name="priority"
+              value={createForm.priority}
+              onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value as Priority })}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </Select>
+            <DateInput
+              label="Due date"
+              name="dueDate"
+              value={createForm.dueDate}
+              onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
+            />
           </div>
-        </div>
-      )}
-
-      {editingTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-md border border-border bg-surface-raised p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">Edit task</h2>
-              <button
-                onClick={closeEditModal}
-                className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
-                aria-label="Close"
-              >
-                âœ•
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit} className="space-y-5">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Title <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Description
-                </label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className={`w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  rows={3}
-                  placeholder="Optional details"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Priority
-                  </label>
-                  <select
-                    value={editForm.priority}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, priority: e.target.value as Priority })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Due date
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.dueDate}
-                    onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={editForm.category}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="Optional, e.g. Work"
-                />
-              </div>
-
-              {editError && <p className="text-sm font-medium text-danger">{editError}</p>}
-
-              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  disabled={saving}
-                  className={`rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  {saving ? "Saving..." : "Save changes"}
-                </button>
-              </div>
-            </form>
+          <Input
+            label="Category"
+            name="category"
+            value={createForm.category}
+            onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
+            placeholder="Optional, e.g. Work"
+          />
+          {createError && <p className="text-sm font-medium text-danger">{createError}</p>}
+          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeCreateModal} disabled={creating}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={creating} loadingText="Creating...">
+              Create task
+            </Button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
-      {deletingTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-md border border-border bg-surface-raised p-6">
-            <h2 className="text-lg font-bold text-foreground">Delete task?</h2>
-
-            <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background p-3">
-              <span
-                className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                  PRIORITY_META[deletingTask.priority].dot
-                }`}
-              />
-              <span className="min-w-0 truncate font-semibold text-foreground">
-                {deletingTask.title}
-              </span>
-              {deletingTask.category && (
-                <span
-                  className="ml-auto shrink-0 rounded px-2 py-0.5 text-xs font-medium text-background"
-                  style={{ backgroundColor: categoryColor(deletingTask.category) }}
-                >
-                  {deletingTask.category}
-                </span>
-              )}
-            </div>
-
-            <p className="mt-3 text-sm text-muted">
-              This will permanently delete this task. This cannot be undone.
-            </p>
-
-            {deleteError && (
-              <p className="mt-3 text-sm font-medium text-danger">{deleteError}</p>
-            )}
-
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeDeleteConfirm}
-                disabled={deleting}
-                className={`rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={deleting}
-                className={`rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                {deleting ? "Deleting..." : "Delete task"}
-              </button>
-            </div>
+      <Modal open={!!editingTask} onClose={closeEditModal} title="Edit task" closeDisabled={saving}>
+        <form onSubmit={handleEditSubmit} className="space-y-5">
+          <Input
+            label="Title"
+            required
+            name="edit-title"
+            value={editForm.title}
+            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            autoFocus
+          />
+          <Textarea
+            label="Description"
+            name="edit-description"
+            value={editForm.description}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Priority"
+              name="edit-priority"
+              value={editForm.priority}
+              onChange={(e) => setEditForm({ ...editForm, priority: e.target.value as Priority })}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </Select>
+            <DateInput
+              label="Due date"
+              name="edit-dueDate"
+              value={editForm.dueDate}
+              onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+            />
           </div>
-        </div>
-      )}
+          <Input
+            label="Category"
+            name="edit-category"
+            value={editForm.category}
+            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+          />
+          {editError && <p className="text-sm font-medium text-danger">{editError}</p>}
+          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeEditModal} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={saving} loadingText="Saving...">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deletingTask}
+        onClose={closeDeleteConfirm}
+        onConfirm={handleConfirmDelete}
+        title="Delete task?"
+        itemLabel={deletingTask?.title ?? ""}
+        description="This will permanently delete this task. This cannot be undone."
+        loading={deleting}
+        error={deleteError}
+      />
     </main>
   );
 }
