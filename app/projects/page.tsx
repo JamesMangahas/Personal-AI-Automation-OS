@@ -2,6 +2,18 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { DateInput } from "../../components/ui/DateInput";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Input } from "../../components/ui/Input";
+import { SkeletonList } from "../../components/ui/LoadingSkeleton";
+import { Modal } from "../../components/ui/Modal";
+import { Select } from "../../components/ui/Select";
+import { Textarea } from "../../components/ui/Textarea";
+import { useToast } from "../../components/ui/Toast";
 
 type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "ARCHIVED";
 type ProjectPriority = "LOW" | "MEDIUM" | "HIGH";
@@ -20,7 +32,6 @@ type Project = {
 };
 
 type LoadStatus = "loading" | "success" | "error";
-type Toast = { type: "success" | "error"; message: string };
 type StatusFilter = "ALL" | ProjectStatus;
 type PriorityFilter = "ALL" | ProjectPriority;
 type SortOption = "NEWEST" | "OLDEST" | "NAME_ASC" | "NAME_DESC" | "DUE_DATE";
@@ -35,24 +46,22 @@ type FormState = {
   dueDate: string;
 };
 
-const STATUS_META: Record<ProjectStatus, { label: string; badge: string }> = {
-  PLANNING: { label: "Planning", badge: "bg-status-planning/15 text-status-planning" },
-  ACTIVE: { label: "Active", badge: "bg-status-active/15 text-status-active" },
-  ON_HOLD: { label: "On hold", badge: "bg-status-onhold/15 text-status-onhold" },
-  COMPLETED: { label: "Completed", badge: "bg-status-completed/15 text-status-completed" },
-  ARCHIVED: { label: "Archived", badge: "bg-status-archived/15 text-status-archived" },
+const STATUS_META: Record<ProjectStatus, { label: string; tone: BadgeTone; bar: string }> = {
+  PLANNING: { label: "Planning", tone: "status-planning", bar: "bg-status-planning" },
+  ACTIVE: { label: "Active", tone: "status-active", bar: "bg-status-active" },
+  ON_HOLD: { label: "On Hold", tone: "status-onhold", bar: "bg-status-onhold" },
+  COMPLETED: { label: "Completed", tone: "status-completed", bar: "bg-status-completed" },
+  ARCHIVED: { label: "Archived", tone: "status-archived", bar: "bg-status-archived" },
 };
 
-const PRIORITY_META: Record<ProjectPriority, { label: string; badge: string }> = {
-  HIGH: { label: "High", badge: "bg-priority-high/15 text-priority-high" },
-  MEDIUM: { label: "Medium", badge: "bg-priority-medium/15 text-priority-medium" },
-  LOW: { label: "Low", badge: "bg-priority-low/15 text-priority-low" },
+const PRIORITY_META: Record<ProjectPriority, { label: string; tone: BadgeTone }> = {
+  HIGH: { label: "High", tone: "priority-high" },
+  MEDIUM: { label: "Medium", tone: "priority-medium" },
+  LOW: { label: "Low", tone: "priority-low" },
 };
 
 const CATEGORY_PALETTE = ["#2DD4BF", "#8B5CF6", "#F59E0B", "#FB7185", "#38BDF8", "#A3E635"];
-
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const MICRO_LABEL = "mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-muted";
 
 function categoryColor(category: string): string {
   let hash = 0;
@@ -85,7 +94,21 @@ const EMPTY_FORM: FormState = {
   dueDate: "",
 };
 
+function toFormState(project: Project): FormState {
+  return {
+    name: project.name,
+    description: project.description ?? "",
+    status: project.status,
+    priority: project.priority,
+    category: project.category ?? "",
+    startDate: toDateInputValue(project.startDate),
+    dueDate: toDateInputValue(project.dueDate),
+  };
+}
+
 export default function ProjectsPage() {
+  const { showToast } = useToast();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -103,8 +126,6 @@ export default function ProjectsPage() {
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -134,12 +155,6 @@ export default function ProjectsPage() {
     loadProjects();
   }, [loadProjects]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
   const availableCategories = useMemo(() => {
     const set = new Set<string>();
     for (const p of projects) {
@@ -164,16 +179,14 @@ export default function ProjectsPage() {
       if (categoryFilter !== "ALL" && p.category !== categoryFilter) return false;
 
       if (query) {
-        const haystack = [p.name, p.description ?? "", p.category ?? ""]
-          .join(" ")
-          .toLowerCase();
+        const haystack = [p.name, p.description ?? "", p.category ?? ""].join(" ").toLowerCase();
         if (!haystack.includes(query)) return false;
       }
 
       return true;
     });
 
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "OLDEST":
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -192,15 +205,10 @@ export default function ProjectsPage() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
-
-    return sorted;
   }, [projects, searchQuery, statusFilter, priorityFilter, categoryFilter, sortBy]);
 
   const hasActiveFilters =
-    searchQuery.trim() !== "" ||
-    statusFilter !== "ALL" ||
-    priorityFilter !== "ALL" ||
-    categoryFilter !== "ALL";
+    searchQuery.trim() !== "" || statusFilter !== "ALL" || priorityFilter !== "ALL" || categoryFilter !== "ALL";
 
   function clearFilters() {
     setSearchQuery("");
@@ -233,11 +241,7 @@ export default function ProjectsPage() {
     setCreating(true);
 
     try {
-      const body: Record<string, string> = {
-        name,
-        status: createForm.status,
-        priority: createForm.priority,
-      };
+      const body: Record<string, string> = { name, status: createForm.status, priority: createForm.priority };
       if (createForm.description.trim()) body.description = createForm.description.trim();
       if (createForm.category.trim()) body.category = createForm.category.trim();
       if (createForm.startDate) body.startDate = createForm.startDate;
@@ -257,7 +261,7 @@ export default function ProjectsPage() {
       setProjects((current) => [data.project as Project, ...current]);
       setIsCreateOpen(false);
       setCreateForm(EMPTY_FORM);
-      setToast({ type: "success", message: `"${data.project.name}" was created.` });
+      showToast("success", `"${data.project.name}" was created.`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create project.");
     } finally {
@@ -267,15 +271,7 @@ export default function ProjectsPage() {
 
   function openEditModal(project: Project) {
     setEditingProject(project);
-    setEditForm({
-      name: project.name,
-      description: project.description ?? "",
-      status: project.status,
-      priority: project.priority,
-      category: project.category ?? "",
-      startDate: toDateInputValue(project.startDate),
-      dueDate: toDateInputValue(project.dueDate),
-    });
+    setEditForm(toFormState(project));
     setEditError(null);
   }
 
@@ -296,9 +292,7 @@ export default function ProjectsPage() {
 
     const changes: Record<string, string | null> = {};
 
-    if (name !== editingProject.name) {
-      changes.name = name;
-    }
+    if (name !== editingProject.name) changes.name = name;
 
     const newDescription = editForm.description.trim();
     const oldDescription = editingProject.description ?? "";
@@ -306,13 +300,8 @@ export default function ProjectsPage() {
       changes.description = newDescription === "" ? null : newDescription;
     }
 
-    if (editForm.status !== editingProject.status) {
-      changes.status = editForm.status;
-    }
-
-    if (editForm.priority !== editingProject.priority) {
-      changes.priority = editForm.priority;
-    }
+    if (editForm.status !== editingProject.status) changes.status = editForm.status;
+    if (editForm.priority !== editingProject.priority) changes.priority = editForm.priority;
 
     const newCategory = editForm.category.trim();
     const oldCategory = editingProject.category ?? "";
@@ -353,7 +342,7 @@ export default function ProjectsPage() {
       const updated = data.project as Project;
       setProjects((current) => current.map((p) => (p.id === updated.id ? updated : p)));
       setEditingProject(null);
-      setToast({ type: "success", message: `"${updated.name}" was updated.` });
+      showToast("success", `"${updated.name}" was updated.`);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to update project.");
     } finally {
@@ -378,20 +367,18 @@ export default function ProjectsPage() {
     setDeleting(true);
 
     try {
-      const res = await fetch(`/api/projects/${deletingProject.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/projects/${deletingProject.id}`, { method: "DELETE" });
       const data = await res.json();
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Failed to delete project.");
       }
 
-      const deletedName = deletingProject.name;
       const deletedId = deletingProject.id;
+      const name = deletingProject.name;
       setProjects((current) => current.filter((p) => p.id !== deletedId));
       setDeletingProject(null);
-      setToast({ type: "success", message: `"${deletedName}" was deleted.` });
+      showToast("success", `"${name}" was deleted.`);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete project.");
     } finally {
@@ -400,620 +387,362 @@ export default function ProjectsPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background px-4 py-8 sm:px-8 sm:py-10 lg:px-10">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl"
-      />
-
-      <div className="relative mx-auto max-w-6xl">
-        <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS Ã‚Â· 03 PROJECTS</p>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-              Projects
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              {status === "success"
-                ? `${visibleProjects.length} of ${projects.length} project${
-                    projects.length === 1 ? "" : "s"
-                  }`
-                : "Personal AI Automation OS"}
-            </p>
+    <main className="min-h-screen bg-background px-4 py-10 sm:px-8 sm:py-14 lg:px-10">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-10 border-b border-border pb-8">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">System / Projects</p>
+          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+                Projects
+              </h1>
+              <p className="mt-2 max-w-md text-sm text-muted sm:text-base">
+                Track scope, status, and priority across your work.
+              </p>
+            </div>
+            <Button onClick={openCreateModal}>Create project</Button>
           </div>
-          <button
-            onClick={openCreateModal}
-            className={`w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 sm:w-auto ${FOCUS_RING}`}
-          >
-            Create project
-          </button>
         </header>
 
         {status === "success" && projects.length > 0 && (
-          <div className="mb-6 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 backdrop-blur-md sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="flex-1 sm:min-w-[220px]">
-              <label htmlFor="project-search" className="sr-only">
-                Search projects
-              </label>
-              <input
-                id="project-search"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search name, description, category..."
-                className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <div>
-                <label htmlFor="status-filter" className="sr-only">
-                  Filter by status
+          <Card variant="raised" className="mb-8">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="lg:col-span-2">
+                <label htmlFor="project-search" className={MICRO_LABEL}>
+                  Search
                 </label>
-                <select
-                  id="status-filter"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className={`rounded-md border border-white/10 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                >
+                <Input
+                  id="project-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Name, description, category..."
+                />
+              </div>
+              <div>
+                <label htmlFor="status-filter" className={MICRO_LABEL}>
+                  Status
+                </label>
+                <Select id="status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
                   <option value="ALL">All statuses</option>
                   <option value="PLANNING">Planning</option>
                   <option value="ACTIVE">Active</option>
-                  <option value="ON_HOLD">On hold</option>
+                  <option value="ON_HOLD">On Hold</option>
                   <option value="COMPLETED">Completed</option>
                   <option value="ARCHIVED">Archived</option>
-                </select>
+                </Select>
               </div>
-
               <div>
-                <label htmlFor="priority-filter" className="sr-only">
-                  Filter by priority
+                <label htmlFor="priority-filter" className={MICRO_LABEL}>
+                  Priority
                 </label>
-                <select
-                  id="priority-filter"
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
-                  className={`rounded-md border border-white/10 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                >
+                <Select id="priority-filter" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}>
                   <option value="ALL">All priorities</option>
                   <option value="HIGH">High</option>
                   <option value="MEDIUM">Medium</option>
                   <option value="LOW">Low</option>
-                </select>
+                </Select>
               </div>
-
-              {availableCategories.length > 0 && (
-                <div>
-                  <label htmlFor="category-filter" className="sr-only">
-                    Filter by category
+            </div>
+            <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex flex-wrap gap-4">
+                {availableCategories.length > 0 && (
+                  <div className="max-w-[10rem]">
+                    <label htmlFor="category-filter" className={MICRO_LABEL}>
+                      Category
+                    </label>
+                    <Select id="category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                      <option value="ALL">All categories</option>
+                      {availableCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                <div className="max-w-[10rem]">
+                  <label htmlFor="sort-by" className={MICRO_LABEL}>
+                    Sort
                   </label>
-                  <select
-                    id="category-filter"
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className={`rounded-md border border-white/10 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="ALL">All categories</option>
-                    {availableCategories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                  <Select id="sort-by" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}>
+                    <option value="NEWEST">Newest first</option>
+                    <option value="OLDEST">Oldest first</option>
+                    <option value="NAME_ASC">Name A-Z</option>
+                    <option value="NAME_DESC">Name Z-A</option>
+                    <option value="DUE_DATE">Due date</option>
+                  </Select>
                 </div>
-              )}
-
-              <div>
-                <label htmlFor="sort-by" className="sr-only">
-                  Sort projects
-                </label>
-                <select
-                  id="sort-by"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className={`rounded-md border border-white/10 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                >
-                  <option value="NEWEST">Newest first</option>
-                  <option value="OLDEST">Oldest first</option>
-                  <option value="NAME_ASC">Name AÃ¢â‚¬â€œZ</option>
-                  <option value="NAME_DESC">Name ZÃ¢â‚¬â€œA</option>
-                  <option value="DUE_DATE">Due date</option>
-                </select>
               </div>
-
               {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className={`rounded-md px-2 text-sm font-medium text-accent transition-colors hover:underline ${FOCUS_RING}`}
-                >
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
                   Clear filters
-                </button>
+                </Button>
               )}
             </div>
-          </div>
+          </Card>
         )}
 
-        {toast && (
-          <div
-            role="status"
-            aria-live="polite"
-            className={`mb-6 flex items-start justify-between gap-3 rounded-xl border-l-4 p-4 text-sm ${
-              toast.type === "success"
-                ? "border-l-success bg-white/[0.04] text-foreground"
-                : "border-l-danger bg-white/[0.04] text-foreground"
-            }`}
-          >
-            <span>{toast.message}</span>
-            <button
-              onClick={() => setToast(null)}
-              aria-label="Dismiss message"
-              className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
-            >
-              Ã¢Å“â€¢
-            </button>
-          </div>
-        )}
-
-        {status === "loading" && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
-              />
-            ))}
-          </div>
-        )}
+        {status === "loading" && <SkeletonList count={4} />}
 
         {status === "error" && (
-          <div className="rounded-xl border border-danger/40 border-l-4 border-l-danger bg-surface p-5">
+          <Card variant="raised" className="border-l-4 border-l-danger">
             <p className="font-semibold text-foreground">Couldn&apos;t load projects</p>
             <p className="mt-1 text-sm text-muted">{error}</p>
-            <button
-              onClick={loadProjects}
-              className={`mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 ${FOCUS_RING}`}
-            >
+            <Button onClick={loadProjects} className="mt-4">
               Retry
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {status === "success" && projects.length === 0 && (
-          <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
-            <p className="font-semibold text-foreground">No projects yet</p>
-            <p className="mt-1 text-sm text-muted">
-              Create your first project to get started.
-            </p>
-          </div>
+          <EmptyState title="No projects yet" message="Create your first project to get started." />
         )}
 
         {status === "success" && projects.length > 0 && visibleProjects.length === 0 && (
-          <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
-            <p className="font-semibold text-foreground">No projects found</p>
-            <p className="mt-1 text-sm text-muted">
-              Try a different search term or adjust your filters.
-            </p>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className={`mt-4 rounded-md border border-white/10 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-white/[0.06] ${FOCUS_RING}`}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          <EmptyState
+            title="No projects found"
+            message="Try a different search term or adjust your filters."
+            action={
+              hasActiveFilters ? (
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : undefined
+            }
+          />
         )}
 
         {status === "success" && visibleProjects.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleProjects.map((project) => {
-              const statusMeta = STATUS_META[project.status];
-              const priorityMeta = PRIORITY_META[project.priority];
-              return (
-                <div
-                  key={project.id}
-                  className="group flex flex-col rounded-xl border border-white/10 bg-white/[0.04] p-5 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-xl hover:shadow-black/30"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h2 className="min-w-0 break-words text-lg font-bold leading-snug text-foreground">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className={`rounded hover:underline ${FOCUS_RING}`}
-                      >
-                        {project.name}
-                      </Link>
-                    </h2>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() => openEditModal(project)}
-                        className={`rounded-md border border-white/10 px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-white/[0.08] ${FOCUS_RING}`}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => openDeleteConfirm(project)}
-                        className={`rounded-md border border-danger/40 px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-danger/10 ${FOCUS_RING}`}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusMeta.badge}`}
-                    >
-                      {statusMeta.label}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${priorityMeta.badge}`}
-                    >
-                      {priorityMeta.label}
-                    </span>
-                    {project.category && (
-                      <span
-                        className="max-w-[8rem] truncate rounded-full px-2 py-0.5 text-xs font-medium text-background"
-                        style={{ backgroundColor: categoryColor(project.category) }}
-                        title={project.category}
-                      >
-                        {project.category}
-                      </span>
-                    )}
-                  </div>
-
-                  {project.description && (
-                    <p className="mt-3 line-clamp-3 break-words text-sm text-muted">
-                      {project.description}
-                    </p>
-                  )}
-
-                  {(project.startDate || project.dueDate) && (
-                    <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 border-t border-white/10 pt-3 text-xs text-muted">
-                      {project.startDate && <span>Starts {formatDate(project.startDate)}</span>}
-                      {project.dueDate && <span>Due {formatDate(project.dueDate)}</span>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">New project</h2>
-              <button
-                onClick={closeCreateModal}
-                className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
-                aria-label="Close"
-              >
-                Ã¢Å“â€¢
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-5">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Name <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                  className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="Project name"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Description
-                </label>
-                <textarea
-                  value={createForm.description}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, description: e.target.value })
-                  }
-                  className={`w-full resize-none rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  rows={3}
-                  placeholder="What is this project about?"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Status
-                  </label>
-                  <select
-                    value={createForm.status}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, status: e.target.value as ProjectStatus })
-                    }
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="PLANNING">Planning</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="ON_HOLD">On hold</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="ARCHIVED">Archived</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Priority
-                  </label>
-                  <select
-                    value={createForm.priority}
-                    onChange={(e) =>
-                      setCreateForm({
-                        ...createForm,
-                        priority: e.target.value as ProjectPriority,
-                      })
-                    }
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={createForm.category}
-                  onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
-                  className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="e.g. Product"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Start date
-                  </label>
-                  <input
-                    type="date"
-                    value={createForm.startDate}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, startDate: e.target.value })
-                    }
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Due date
-                  </label>
-                  <input
-                    type="date"
-                    value={createForm.dueDate}
-                    onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              {createError && (
-                <p className="text-sm font-medium text-danger">{createError}</p>
-              )}
-
-              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  disabled={creating}
-                  className={`rounded-md border border-white/10 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  {creating ? "Creating..." : "Create project"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {editingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">Edit project</h2>
-              <button
-                onClick={closeEditModal}
-                className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
-                aria-label="Close"
-              >
-                Ã¢Å“â€¢
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit} className="space-y-5">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Name <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Description
-                </label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className={`w-full resize-none rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  rows={3}
-                  placeholder="What is this project about?"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Status
-                  </label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, status: e.target.value as ProjectStatus })
-                    }
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="PLANNING">Planning</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="ON_HOLD">On hold</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="ARCHIVED">Archived</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Priority
-                  </label>
-                  <select
-                    value={editForm.priority}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, priority: e.target.value as ProjectPriority })
-                    }
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={editForm.category}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="e.g. Product"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Start date
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.startDate}
-                    onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Due date
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.dueDate}
-                    onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                    className={`w-full rounded-md border border-white/10 bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              {editError && <p className="text-sm font-medium text-danger">{editError}</p>}
-
-              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  disabled={saving}
-                  className={`rounded-md border border-white/10 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  {saving ? "Saving..." : "Save changes"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {deletingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl">
-            <h2 className="text-lg font-bold text-foreground">Delete project?</h2>
-
-            <div className="mt-3 rounded-md border border-white/10 bg-background p-3">
-              <span className="break-words font-semibold text-foreground">
-                {deletingProject.name}
+          <>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-mono text-sm font-semibold text-accent">01</span>
+              <span className="h-px w-8 bg-gradient-to-r from-accent/50 to-transparent" aria-hidden="true" />
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Project Operations</h2>
+              <span className="ml-auto font-mono text-xs text-muted">
+                {visibleProjects.length} / {projects.length}
               </span>
             </div>
 
-            <p className="mt-3 text-sm text-muted">
-              This will permanently delete this project. This cannot be undone.
-            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {visibleProjects.map((project) => {
+                const statusMeta = STATUS_META[project.status];
+                const priorityMeta = PRIORITY_META[project.priority];
+                return (
+                  <Card
+                    key={project.id}
+                    variant="raised"
+                    hoverable
+                    className="relative flex flex-col gap-3 overflow-hidden pt-4 transition-transform duration-150 hover:-translate-y-0.5"
+                  >
+                    <span className={`absolute inset-x-0 top-0 h-0.5 ${statusMeta.bar}`} aria-hidden="true" />
 
-            {deleteError && (
-              <p className="mt-3 text-sm font-medium text-danger">{deleteError}</p>
-            )}
+                    <div className="flex items-start justify-between gap-2">
+                      <Link
+                        href={`/projects/${project.id}`}
+                        className="min-w-0 break-words text-lg font-bold leading-snug text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                      >
+                        {project.name}
+                      </Link>
+                      <div className="flex shrink-0 gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => openEditModal(project)}>
+                          Edit
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => openDeleteConfirm(project)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
 
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeDeleteConfirm}
-                disabled={deleting}
-                className={`rounded-md border border-white/10 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={deleting}
-                className={`rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                {deleting ? "Deleting..." : "Delete project"}
-              </button>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
+                      <Badge tone={priorityMeta.tone}>{priorityMeta.label}</Badge>
+                      {project.category && (
+                        <span
+                          className="max-w-[8rem] truncate rounded-full px-2 py-0.5 text-xs font-medium text-background"
+                          style={{ backgroundColor: categoryColor(project.category) }}
+                          title={project.category}
+                        >
+                          {project.category}
+                        </span>
+                      )}
+                    </div>
+
+                    {project.description && (
+                      <p className="line-clamp-2 break-words text-sm text-muted">{project.description}</p>
+                    )}
+
+                    {(project.startDate || project.dueDate) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 font-mono text-xs text-muted">
+                        {project.startDate && <span>Start {formatDate(project.startDate)}</span>}
+                        {project.dueDate && <span>Due {formatDate(project.dueDate)}</span>}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
+          </>
+        )}
+      </div>
+
+      <Modal open={isCreateOpen} onClose={closeCreateModal} title="New project" closeDisabled={creating}>
+        <form onSubmit={handleCreateSubmit} className="space-y-5">
+          <Input
+            label="Name"
+            required
+            name="name"
+            value={createForm.name}
+            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+            placeholder="Project name"
+            autoFocus
+          />
+          <Textarea
+            label="Description"
+            name="description"
+            value={createForm.description}
+            onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+            placeholder="What is this project about?"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Status"
+              name="status"
+              value={createForm.status}
+              onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as ProjectStatus })}
+            >
+              <option value="PLANNING">Planning</option>
+              <option value="ACTIVE">Active</option>
+              <option value="ON_HOLD">On Hold</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="ARCHIVED">Archived</option>
+            </Select>
+            <Select
+              label="Priority"
+              name="priority"
+              value={createForm.priority}
+              onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value as ProjectPriority })}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </Select>
           </div>
-        </div>
-      )}
+          <Input
+            label="Category"
+            name="category"
+            value={createForm.category}
+            onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
+            placeholder="e.g. Product"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <DateInput
+              label="Start date"
+              name="startDate"
+              value={createForm.startDate}
+              onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
+            />
+            <DateInput
+              label="Due date"
+              name="dueDate"
+              value={createForm.dueDate}
+              onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
+            />
+          </div>
+          {createError && <p className="text-sm font-medium text-danger">{createError}</p>}
+          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeCreateModal} disabled={creating}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={creating} loadingText="Creating...">
+              Create project
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!editingProject} onClose={closeEditModal} title="Edit project" closeDisabled={saving}>
+        <form onSubmit={handleEditSubmit} className="space-y-5">
+          <Input
+            label="Name"
+            required
+            name="edit-name"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            autoFocus
+          />
+          <Textarea
+            label="Description"
+            name="edit-description"
+            value={editForm.description}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Status"
+              name="edit-status"
+              value={editForm.status}
+              onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ProjectStatus })}
+            >
+              <option value="PLANNING">Planning</option>
+              <option value="ACTIVE">Active</option>
+              <option value="ON_HOLD">On Hold</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="ARCHIVED">Archived</option>
+            </Select>
+            <Select
+              label="Priority"
+              name="edit-priority"
+              value={editForm.priority}
+              onChange={(e) => setEditForm({ ...editForm, priority: e.target.value as ProjectPriority })}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </Select>
+          </div>
+          <Input
+            label="Category"
+            name="edit-category"
+            value={editForm.category}
+            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <DateInput
+              label="Start date"
+              name="edit-startDate"
+              value={editForm.startDate}
+              onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+            />
+            <DateInput
+              label="Due date"
+              name="edit-dueDate"
+              value={editForm.dueDate}
+              onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+            />
+          </div>
+          {editError && <p className="text-sm font-medium text-danger">{editError}</p>}
+          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeEditModal} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={saving} loadingText="Saving...">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deletingProject}
+        onClose={closeDeleteConfirm}
+        onConfirm={handleConfirmDelete}
+        title="Delete project?"
+        itemLabel={deletingProject?.name ?? ""}
+        description="This will permanently delete this project. This cannot be undone."
+        loading={deleting}
+        error={deleteError}
+      />
     </main>
   );
 }

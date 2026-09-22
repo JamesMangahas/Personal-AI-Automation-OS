@@ -1,6 +1,18 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { DateInput } from "../../components/ui/DateInput";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Input } from "../../components/ui/Input";
+import { SkeletonList } from "../../components/ui/LoadingSkeleton";
+import { Modal } from "../../components/ui/Modal";
+import { Select } from "../../components/ui/Select";
+import { Textarea } from "../../components/ui/Textarea";
+import { useToast } from "../../components/ui/Toast";
 
 type JobStatus =
   | "INTERESTED"
@@ -29,7 +41,6 @@ type JobApplication = {
 };
 
 type LoadStatus = "loading" | "success" | "error";
-type Toast = { type: "success" | "error"; message: string };
 type StatusFilter = "ALL" | JobStatus;
 
 type FormState = {
@@ -45,19 +56,18 @@ type FormState = {
   followUpDate: string;
 };
 
-const STATUS_META: Record<JobStatus, { label: string; badge: string }> = {
-  INTERESTED: { label: "Interested", badge: "bg-status-planning/15 text-status-planning" },
-  PREPARING: { label: "Preparing", badge: "bg-priority-medium/15 text-priority-medium" },
-  APPLIED: { label: "Applied", badge: "bg-status-active/15 text-status-active" },
-  INTERVIEW: { label: "Interview", badge: "bg-accent/15 text-accent" },
-  ASSESSMENT: { label: "Assessment", badge: "bg-priority-medium/15 text-priority-medium" },
-  OFFER: { label: "Offer", badge: "bg-status-completed/15 text-status-completed" },
-  REJECTED: { label: "Rejected", badge: "bg-danger/15 text-danger" },
-  HIRED: { label: "Hired", badge: "bg-status-completed/15 text-status-completed" },
+const STATUS_META: Record<JobStatus, { label: string; tone: BadgeTone; bar: string }> = {
+  INTERESTED: { label: "Interested", tone: "status-planning", bar: "bg-status-planning" },
+  PREPARING: { label: "Preparing", tone: "priority-medium", bar: "bg-priority-medium" },
+  APPLIED: { label: "Applied", tone: "status-active", bar: "bg-status-active" },
+  INTERVIEW: { label: "Interview", tone: "accent", bar: "bg-accent" },
+  ASSESSMENT: { label: "Assessment", tone: "priority-medium", bar: "bg-priority-medium" },
+  OFFER: { label: "Offer", tone: "status-completed", bar: "bg-status-completed" },
+  REJECTED: { label: "Rejected", tone: "danger", bar: "bg-danger" },
+  HIRED: { label: "Hired", tone: "success", bar: "bg-success" },
 };
 
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const MICRO_LABEL = "mb-1 block font-mono text-[10px] uppercase tracking-[0.15em] text-muted";
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -101,6 +111,8 @@ function toFormState(job: JobApplication): FormState {
 }
 
 export default function JobsPage() {
+  const { showToast } = useToast();
+
   const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -118,8 +130,6 @@ export default function JobsPage() {
   const [deletingJob, setDeletingJob] = useState<JobApplication | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -146,23 +156,15 @@ export default function JobsPage() {
     loadJobs();
   }, [loadJobs]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
   const visibleJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     const filtered = jobApplications.filter((job) => {
       if (statusFilter !== "ALL" && job.status !== statusFilter) return false;
-
       if (query) {
         const haystack = `${job.company} ${job.position}`.toLowerCase();
         if (!haystack.includes(query)) return false;
       }
-
       return true;
     });
 
@@ -231,10 +233,7 @@ export default function JobsPage() {
       setJobApplications((current) => [data.jobApplication as JobApplication, ...current]);
       setIsCreateOpen(false);
       setCreateForm(EMPTY_FORM);
-      setToast({
-        type: "success",
-        message: `"${data.jobApplication.position}" at "${data.jobApplication.company}" was added.`,
-      });
+      showToast("success", `"${data.jobApplication.position}" at "${data.jobApplication.company}" was added.`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create job application.");
     } finally {
@@ -329,10 +328,7 @@ export default function JobsPage() {
         current.map((j) => (j.id === updated.id ? updated : j))
       );
       setEditingJob(null);
-      setToast({
-        type: "success",
-        message: `"${updated.position}" at "${updated.company}" was updated.`,
-      });
+      showToast("success", `"${updated.position}" at "${updated.company}" was updated.`);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to update job application.");
     } finally {
@@ -370,7 +366,7 @@ export default function JobsPage() {
       const label = `"${deletingJob.position}" at "${deletingJob.company}"`;
       setJobApplications((current) => current.filter((j) => j.id !== deletedId));
       setDeletingJob(null);
-      setToast({ type: "success", message: `${label} was deleted.` });
+      showToast("success", `${label} was deleted.`);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete job application.");
     } finally {
@@ -379,57 +375,43 @@ export default function JobsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 sm:px-8 sm:py-10 lg:px-10">
+    <main className="min-h-screen bg-background px-4 py-10 sm:px-8 sm:py-14 lg:px-10">
       <div className="mx-auto max-w-4xl">
-        <header className="mb-8 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-mono text-xs tracking-wide text-muted">OPS Â· 04 JOBS</p>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-              Job Applications
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              {status === "success"
-                ? `${visibleJobs.length} of ${jobApplications.length} application${
-                    jobApplications.length === 1 ? "" : "s"
-                  }`
-                : "Personal AI Automation OS"}
-            </p>
+        <header className="mb-10 border-b border-border pb-8">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">System / Jobs</p>
+          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+                Job Applications
+              </h1>
+              <p className="mt-2 max-w-md text-sm text-muted sm:text-base">
+                Track outreach, interviews, and offers in one place.
+              </p>
+            </div>
+            <Button onClick={openCreateModal}>Add application</Button>
           </div>
-          <button
-            onClick={openCreateModal}
-            className={`w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 sm:w-auto ${FOCUS_RING}`}
-          >
-            Add application
-          </button>
         </header>
 
         {status === "success" && jobApplications.length > 0 && (
-          <div className="mb-6 flex flex-col gap-3 rounded-md border border-border bg-surface p-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="flex-1 sm:min-w-[220px]">
-              <label htmlFor="job-search" className="sr-only">
-                Search job applications
-              </label>
-              <input
-                id="job-search"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search company or position..."
-                className={`w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <div>
-                <label htmlFor="status-filter" className="sr-only">
-                  Filter by status
+          <Card variant="raised" className="mb-8">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <label htmlFor="job-search" className={MICRO_LABEL}>
+                  Search
                 </label>
-                <select
-                  id="status-filter"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className={`rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                >
+                <Input
+                  id="job-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Company or position..."
+                />
+              </div>
+              <div>
+                <label htmlFor="status-filter" className={MICRO_LABEL}>
+                  Status
+                </label>
+                <Select id="status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
                   <option value="ALL">All statuses</option>
                   <option value="INTERESTED">Interested</option>
                   <option value="PREPARING">Preparing</option>
@@ -439,555 +421,314 @@ export default function JobsPage() {
                   <option value="OFFER">Offer</option>
                   <option value="REJECTED">Rejected</option>
                   <option value="HIRED">Hired</option>
-                </select>
+                </Select>
               </div>
-
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className={`rounded-md px-2 text-sm font-medium text-accent transition-colors hover:underline ${FOCUS_RING}`}
-                >
-                  Clear filters
-                </button>
-              )}
             </div>
-          </div>
+            {hasActiveFilters && (
+              <div className="mt-4 flex justify-end border-t border-border pt-4">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            )}
+          </Card>
         )}
 
-        {toast && (
-          <div
-            role="status"
-            aria-live="polite"
-            className={`mb-6 flex items-start justify-between gap-3 rounded-md border-l-4 p-4 text-sm ${
-              toast.type === "success"
-                ? "border-l-success bg-surface text-foreground"
-                : "border-l-danger bg-surface text-foreground"
-            }`}
-          >
-            <span>{toast.message}</span>
-            <button
-              onClick={() => setToast(null)}
-              aria-label="Dismiss message"
-              className={`shrink-0 text-muted hover:text-foreground ${FOCUS_RING}`}
-            >
-              âœ•
-            </button>
-          </div>
-        )}
-
-        {status === "loading" && (
-          <div className="space-y-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-24 animate-pulse rounded-md border border-border bg-surface"
-              />
-            ))}
-          </div>
-        )}
+        {status === "loading" && <SkeletonList count={4} />}
 
         {status === "error" && (
-          <div className="rounded-md border border-danger/40 border-l-4 border-l-danger bg-surface p-5">
+          <Card variant="raised" className="border-l-4 border-l-danger">
             <p className="font-semibold text-foreground">Couldn&apos;t load job applications</p>
             <p className="mt-1 text-sm text-muted">{error}</p>
-            <button
-              onClick={loadJobs}
-              className={`mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 ${FOCUS_RING}`}
-            >
+            <Button onClick={loadJobs} className="mt-4">
               Retry
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {status === "success" && jobApplications.length === 0 && (
-          <div className="rounded-md border border-dashed border-border bg-surface p-10 text-center">
-            <p className="font-semibold text-foreground">No job applications yet</p>
-            <p className="mt-1 text-sm text-muted">
-              Add your first application to start tracking it here.
-            </p>
-          </div>
+          <EmptyState title="No job applications yet" message="Add your first application to start tracking it here." />
         )}
 
         {status === "success" && jobApplications.length > 0 && visibleJobs.length === 0 && (
-          <div className="rounded-md border border-dashed border-border bg-surface p-10 text-center">
-            <p className="font-semibold text-foreground">No applications found</p>
-            <p className="mt-1 text-sm text-muted">
-              Try a different search term or adjust your filters.
-            </p>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className={`mt-4 rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface-raised ${FOCUS_RING}`}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          <EmptyState
+            title="No applications found"
+            message="Try a different search term or adjust your filters."
+            action={
+              hasActiveFilters ? (
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : undefined
+            }
+          />
         )}
 
         {status === "success" && visibleJobs.length > 0 && (
-          <ul className="space-y-2">
-            {visibleJobs.map((job) => {
-              const statusMeta = STATUS_META[job.status];
-              return (
-                <li
-                  key={job.id}
-                  className="rounded-md border border-border bg-surface p-4 sm:p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="break-words font-semibold text-foreground">
-                        {job.position}
-                      </p>
-                      <p className="break-words text-sm text-muted">{job.company}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusMeta.badge}`}
-                      >
-                        {statusMeta.label}
-                      </span>
-                      <button
-                        onClick={() => openEditModal(job)}
-                        className={`rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-surface-raised ${FOCUS_RING}`}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => openDeleteConfirm(job)}
-                        className={`rounded-md border border-danger/40 px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-danger/10 ${FOCUS_RING}`}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+          <>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-mono text-sm font-semibold text-accent">01</span>
+              <span className="h-px w-8 bg-gradient-to-r from-accent/50 to-transparent" aria-hidden="true" />
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Job Application Operations</h2>
+              <span className="ml-auto font-mono text-xs text-muted">
+                {visibleJobs.length} / {jobApplications.length}
+              </span>
+            </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-                    {job.salary && <span>{job.salary}</span>}
-                    {job.appliedDate && <span>Applied {formatDate(job.appliedDate)}</span>}
-                    {job.interviewDate && (
-                      <span>Interview {formatDate(job.interviewDate)}</span>
-                    )}
-                    {job.followUpDate && (
-                      <span>Follow up {formatDate(job.followUpDate)}</span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+            <ul className="space-y-2">
+              {visibleJobs.map((job) => {
+                const statusMeta = STATUS_META[job.status];
+                return (
+                  <li key={job.id}>
+                    <Card variant="raised" hoverable className={`relative overflow-hidden border-l-4 pt-4`} style={{}}>
+                      <span className={`absolute inset-x-0 top-0 h-0.5 ${statusMeta.bar}`} aria-hidden="true" />
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-lg font-bold text-foreground">{job.position}</p>
+                          <p className="break-words text-sm text-muted">{job.company}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
+                          <Button variant="secondary" size="sm" onClick={() => openEditModal(job)}>
+                            Edit
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => openDeleteConfirm(job)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 font-mono text-xs text-muted">
+                        {job.salary && <span>{job.salary}</span>}
+                        {job.appliedDate && <span>Applied {formatDate(job.appliedDate)}</span>}
+                        {job.interviewDate && <span>Interview {formatDate(job.interviewDate)}</span>}
+                        {job.followUpDate && <span>Follow up {formatDate(job.followUpDate)}</span>}
+                      </div>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
 
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-md border border-border bg-surface-raised p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">New application</h2>
-              <button
-                onClick={closeCreateModal}
-                className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
-                aria-label="Close"
-              >
-                âœ•
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Company <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={createForm.company}
-                    onChange={(e) => setCreateForm({ ...createForm, company: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                    placeholder="Acme Corp"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Position <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={createForm.position}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, position: e.target.value })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                    placeholder="Frontend Engineer"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Job posting URL
-                </label>
-                <input
-                  type="text"
-                  value={createForm.url}
-                  onChange={(e) => setCreateForm({ ...createForm, url: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="https://..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Salary
-                  </label>
-                  <input
-                    type="text"
-                    value={createForm.salary}
-                    onChange={(e) => setCreateForm({ ...createForm, salary: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                    placeholder="$90k - $110k"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Status
-                  </label>
-                  <select
-                    value={createForm.status}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, status: e.target.value as JobStatus })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="INTERESTED">Interested</option>
-                    <option value="PREPARING">Preparing</option>
-                    <option value="APPLIED">Applied</option>
-                    <option value="INTERVIEW">Interview</option>
-                    <option value="ASSESSMENT">Assessment</option>
-                    <option value="OFFER">Offer</option>
-                    <option value="REJECTED">Rejected</option>
-                    <option value="HIRED">Hired</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Applied date
-                  </label>
-                  <input
-                    type="date"
-                    value={createForm.appliedDate}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, appliedDate: e.target.value })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Interview date
-                  </label>
-                  <input
-                    type="date"
-                    value={createForm.interviewDate}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, interviewDate: e.target.value })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Contact
-                </label>
-                <input
-                  type="text"
-                  value={createForm.contact}
-                  onChange={(e) => setCreateForm({ ...createForm, contact: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  placeholder="Recruiter name / email"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Notes
-                </label>
-                <textarea
-                  value={createForm.notes}
-                  onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
-                  className={`w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  rows={3}
-                  placeholder="Optional details"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Follow-up date
-                </label>
-                <input
-                  type="date"
-                  value={createForm.followUpDate}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, followUpDate: e.target.value })
-                  }
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                />
-              </div>
-
-              {createError && (
-                <p className="text-sm font-medium text-danger">{createError}</p>
-              )}
-
-              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  disabled={creating}
-                  className={`rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  {creating ? "Adding..." : "Add application"}
-                </button>
-              </div>
-            </form>
+      <Modal open={isCreateOpen} onClose={closeCreateModal} title="New application" closeDisabled={creating}>
+        <form onSubmit={handleCreateSubmit} className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Company"
+              required
+              name="company"
+              value={createForm.company}
+              onChange={(e) => setCreateForm({ ...createForm, company: e.target.value })}
+              placeholder="Acme Corp"
+              autoFocus
+            />
+            <Input
+              label="Position"
+              required
+              name="position"
+              value={createForm.position}
+              onChange={(e) => setCreateForm({ ...createForm, position: e.target.value })}
+              placeholder="Frontend Engineer"
+            />
           </div>
-        </div>
-      )}
 
-      {editingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-md border border-border bg-surface-raised p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">Edit application</h2>
-              <button
-                onClick={closeEditModal}
-                className={`rounded text-muted transition-colors hover:text-foreground ${FOCUS_RING}`}
-                aria-label="Close"
-              >
-                âœ•
-              </button>
-            </div>
+          <Input
+            label="Job posting URL"
+            name="url"
+            value={createForm.url}
+            onChange={(e) => setCreateForm({ ...createForm, url: e.target.value })}
+            placeholder="https://..."
+          />
 
-            <form onSubmit={handleEditSubmit} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Company <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.company}
-                    onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Position <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.position}
-                    onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Job posting URL
-                </label>
-                <input
-                  type="text"
-                  value={editForm.url}
-                  onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Salary
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.salary}
-                    onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })}
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Status
-                  </label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, status: e.target.value as JobStatus })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  >
-                    <option value="INTERESTED">Interested</option>
-                    <option value="PREPARING">Preparing</option>
-                    <option value="APPLIED">Applied</option>
-                    <option value="INTERVIEW">Interview</option>
-                    <option value="ASSESSMENT">Assessment</option>
-                    <option value="OFFER">Offer</option>
-                    <option value="REJECTED">Rejected</option>
-                    <option value="HIRED">Hired</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Applied date
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.appliedDate}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, appliedDate: e.target.value })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Interview date
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.interviewDate}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, interviewDate: e.target.value })
-                    }
-                    className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Contact
-                </label>
-                <input
-                  type="text"
-                  value={editForm.contact}
-                  onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })}
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Notes
-                </label>
-                <textarea
-                  value={editForm.notes}
-                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                  className={`w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Follow-up date
-                </label>
-                <input
-                  type="date"
-                  value={editForm.followUpDate}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, followUpDate: e.target.value })
-                  }
-                  className={`w-full rounded-md border border-border bg-background px-3 py-2 text-foreground outline-none transition-colors focus:border-accent ${FOCUS_RING}`}
-                />
-              </div>
-
-              {editError && <p className="text-sm font-medium text-danger">{editError}</p>}
-
-              <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  disabled={saving}
-                  className={`rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className={`rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  {saving ? "Saving..." : "Save changes"}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Salary"
+              name="salary"
+              value={createForm.salary}
+              onChange={(e) => setCreateForm({ ...createForm, salary: e.target.value })}
+              placeholder="$90k - $110k"
+            />
+            <Select
+              label="Status"
+              name="status"
+              value={createForm.status}
+              onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as JobStatus })}
+            >
+              <option value="INTERESTED">Interested</option>
+              <option value="PREPARING">Preparing</option>
+              <option value="APPLIED">Applied</option>
+              <option value="INTERVIEW">Interview</option>
+              <option value="ASSESSMENT">Assessment</option>
+              <option value="OFFER">Offer</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="HIRED">Hired</option>
+            </Select>
           </div>
-        </div>
-      )}
 
-      {deletingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-md border border-border bg-surface-raised p-6">
-            <h2 className="text-lg font-bold text-foreground">Delete application?</h2>
-
-            <div className="mt-3 rounded-md border border-border bg-background p-3">
-              <p className="break-words font-semibold text-foreground">
-                {deletingJob.position}
-              </p>
-              <p className="break-words text-sm text-muted">{deletingJob.company}</p>
-            </div>
-
-            <p className="mt-3 text-sm text-muted">
-              This will permanently delete this job application. This cannot be undone.
-            </p>
-
-            {deleteError && (
-              <p className="mt-3 text-sm font-medium text-danger">{deleteError}</p>
-            )}
-
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeDeleteConfirm}
-                disabled={deleting}
-                className={`rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={deleting}
-                className={`rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                {deleting ? "Deleting..." : "Delete application"}
-              </button>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <DateInput
+              label="Applied date"
+              name="appliedDate"
+              value={createForm.appliedDate}
+              onChange={(e) => setCreateForm({ ...createForm, appliedDate: e.target.value })}
+            />
+            <DateInput
+              label="Interview date"
+              name="interviewDate"
+              value={createForm.interviewDate}
+              onChange={(e) => setCreateForm({ ...createForm, interviewDate: e.target.value })}
+            />
           </div>
-        </div>
-      )}
+
+          <Input
+            label="Contact"
+            name="contact"
+            value={createForm.contact}
+            onChange={(e) => setCreateForm({ ...createForm, contact: e.target.value })}
+            placeholder="Recruiter name / email"
+          />
+
+          <Textarea
+            label="Notes"
+            name="notes"
+            value={createForm.notes}
+            onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
+            placeholder="Optional details"
+          />
+
+          <DateInput
+            label="Follow-up date"
+            name="followUpDate"
+            value={createForm.followUpDate}
+            onChange={(e) => setCreateForm({ ...createForm, followUpDate: e.target.value })}
+          />
+
+          {createError && <p className="text-sm font-medium text-danger">{createError}</p>}
+
+          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeCreateModal} disabled={creating}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={creating} loadingText="Adding...">
+              Add application
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!editingJob} onClose={closeEditModal} title="Edit application" closeDisabled={saving}>
+        <form onSubmit={handleEditSubmit} className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Company"
+              required
+              name="edit-company"
+              value={editForm.company}
+              onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+              autoFocus
+            />
+            <Input
+              label="Position"
+              required
+              name="edit-position"
+              value={editForm.position}
+              onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+            />
+          </div>
+
+          <Input
+            label="Job posting URL"
+            name="edit-url"
+            value={editForm.url}
+            onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Salary"
+              name="edit-salary"
+              value={editForm.salary}
+              onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })}
+            />
+            <Select
+              label="Status"
+              name="edit-status"
+              value={editForm.status}
+              onChange={(e) => setEditForm({ ...editForm, status: e.target.value as JobStatus })}
+            >
+              <option value="INTERESTED">Interested</option>
+              <option value="PREPARING">Preparing</option>
+              <option value="APPLIED">Applied</option>
+              <option value="INTERVIEW">Interview</option>
+              <option value="ASSESSMENT">Assessment</option>
+              <option value="OFFER">Offer</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="HIRED">Hired</option>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <DateInput
+              label="Applied date"
+              name="edit-appliedDate"
+              value={editForm.appliedDate}
+              onChange={(e) => setEditForm({ ...editForm, appliedDate: e.target.value })}
+            />
+            <DateInput
+              label="Interview date"
+              name="edit-interviewDate"
+              value={editForm.interviewDate}
+              onChange={(e) => setEditForm({ ...editForm, interviewDate: e.target.value })}
+            />
+          </div>
+
+          <Input
+            label="Contact"
+            name="edit-contact"
+            value={editForm.contact}
+            onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })}
+          />
+
+          <Textarea
+            label="Notes"
+            name="edit-notes"
+            value={editForm.notes}
+            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+          />
+
+          <DateInput
+            label="Follow-up date"
+            name="edit-followUpDate"
+            value={editForm.followUpDate}
+            onChange={(e) => setEditForm({ ...editForm, followUpDate: e.target.value })}
+          />
+
+          {editError && <p className="text-sm font-medium text-danger">{editError}</p>}
+
+          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeEditModal} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={saving} loadingText="Saving...">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deletingJob}
+        onClose={closeDeleteConfirm}
+        onConfirm={handleConfirmDelete}
+        title="Delete application?"
+        itemLabel={deletingJob ? `${deletingJob.position} at ${deletingJob.company}` : ""}
+        description="This will permanently delete this job application. This cannot be undone."
+        loading={deleting}
+        error={deleteError}
+      />
     </main>
   );
 }
